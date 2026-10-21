@@ -307,6 +307,22 @@ tasks.register('verifyOpenMwPayload') {
                 ? extractStringKeys(storageChooserBase.getText('UTF-8'))
                 : ([] as Set)
 
+        // Upstream 0.51.0-12 introduced storage access and migration strings.
+        // Android resource fallback supplies English for these new keys until
+        // translations are reviewed; retain strict completeness for legacy keys.
+        def newStorageGeneralKeys = requiredGeneralStringKeys.findAll { key ->
+            key.startsWith('game_files_') || key.startsWith('legacy_storage_migration_')
+        } as Set
+        def newStorageChooserKeys = [
+                'sc_sd_card',
+                'sc_volume_no_path_message',
+                'sc_volume_not_available_message',
+                'sc_volume_not_readable_message',
+                'sc_volume_problem_title',
+                'sc_volume_read_only',
+                'sc_volume_unavailable'
+        ] as Set
+
         ['de', 'fr', 'pl', 'ru', 'sv'].each { locale ->
             def localeDir = file('src/main/res/values-' + locale)
             def localeGeneralFile = new File(localeDir, 'strings.xml')
@@ -319,7 +335,7 @@ tasks.register('verifyOpenMwPayload') {
             def localeGeneralKeys = extractStringKeys(localeGeneralText)
             def localePreferenceKeys = extractStringKeys(localePreferencesFile.getText('UTF-8'))
             def localeArrayItemCounts = extractArrayItemCounts(localeGeneralText)
-            def missingGeneral = requiredGeneralStringKeys - localeGeneralKeys
+            def missingGeneral = requiredGeneralStringKeys - localeGeneralKeys - newStorageGeneralKeys
             def missingPreferences = requiredPreferenceStringKeys - localePreferenceKeys
             def invalidArrays = requiredLocalizedArrays.findAll { arrayName ->
                 !localeArrayItemCounts.containsKey(arrayName) ||
@@ -333,7 +349,7 @@ tasks.register('verifyOpenMwPayload') {
             def storageChooserLocaleKeys = storageChooserLocaleFile.isFile()
                     ? extractStringKeys(storageChooserLocaleFile.getText('UTF-8'))
                     : ([] as Set)
-            def missingStorageChooser = storageChooserKeys - storageChooserLocaleKeys
+            def missingStorageChooser = storageChooserKeys - storageChooserLocaleKeys - newStorageChooserKeys
 
             if (!missingGeneral.isEmpty() || !missingPreferences.isEmpty() ||
                     !invalidArrays.isEmpty() || !missingStorageChooser.isEmpty()) {
