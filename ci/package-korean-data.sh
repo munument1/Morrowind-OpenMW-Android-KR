@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build an Android-ready Korean data directory from the exact Windows KR4
+# Build an Android-ready Korean data directory from the exact Windows KR6
 # translation payload that has already been tested with OpenMW 0.51.0.
 # Only Korean data/fonts/subtitles are reused; Windows executables and installer
 # files are never copied into the Android package.
 KOREAN_REPO='munument1/-KR-openmw'
-KOREAN_TAG='openmw-0.51.0-kr4'
-KOREAN_ASSET='Morrowind-Korean-OpenMW-0.51.0-KR4-Full.zip'
-KOREAN_ASSET_SHA256='1894a6d7e38c37bc462d250e8dc1a5242d3b77827d793a5518e4e41bbade39ca'
+KOREAN_TAG='openmw-0.51.0-kr6'
+KOREAN_ASSET='Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip'
+KOREAN_ASSET_SHA256='ce500bbea1d9527edc2304cd2dc214df6da4f9e90233604416a7b6fc61469e31'
 
 WORK='work/korean-data'
 SOURCE_DIR="$WORK/source"
 STAGING_DIR="$WORK/staging"
 DATA_DIR="$STAGING_DIR/Morrowind_Korean_ReTranslation"
 OUTDIR='release-artifacts'
-OUT="$OUTDIR/OpenMW-Android-0.51.0-11-Korean-Data-KR4.zip"
+OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip"
 
 rm -rf "$WORK"
 mkdir -p "$SOURCE_DIR" "$DATA_DIR/Fonts" "$OUTDIR"
@@ -56,7 +56,7 @@ done
 test -d "$DATA_DIR/l10n"
 
 # The Android runtime patch maps video/foo.bik -> video/foo.srt through VFS.
-# Keep the exact ten subtitle tracks that were validated on the Windows KR4
+# Keep the exact ten subtitle tracks that were validated on the Windows KR6
 # runtime. Original BIK files are neither modified nor redistributed.
 SUBTITLES=(
   mw_intro
@@ -80,7 +80,7 @@ test "$(find "$DATA_DIR/video" -maxdepth 1 -type f -name '*.srt' | wc -l)" -eq 1
 grep -Fq 'Galmuri11.ttf' "$DATA_DIR/Fonts/MysticCards.omwfont"
 
 cat > "$STAGING_DIR/README-ANDROID-KO.txt" <<'EOF'
-OpenMW Android 0.51.0-11 한국어 데이터 패키지
+OpenMW Android 0.51.0-12 한국어 데이터 패키지
 
 이 압축 파일은 한국어 번역 데이터, 갈무리11 기반 MysticCards 폰트,
 그리고 본편 3개 + Bloodmoon 7개 영상용 한국어 SRT 자막을 포함합니다.
@@ -108,7 +108,7 @@ unzip -tq "$OUT"
 sha256sum "$OUT" | tee "$OUT.sha256"
 
 {
-  echo 'OpenMW Android 0.51.0-11 Korean data package'
+  echo 'OpenMW Android 0.51.0-12 Korean data package'
   echo 'source_repo=munument1/-KR-openmw'
   echo "source_tag=$KOREAN_TAG"
   echo "source_asset=$KOREAN_ASSET"
