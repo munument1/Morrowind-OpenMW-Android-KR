@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x ci/package-korean-data.sh
-          ./ci/package-korean-data.sh
+          # Diagnose release layout before extraction (no changes to the archive).\n          gh release download openmw-0.51.0-kr6 --repo munument1/-KR-openmw --pattern 'Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip' --dir /tmp\n          unzip -Z1 /tmp/Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip | head -n 60\n          ./ci/package-korean-data.sh
           grep -Fx 'source_tag=openmw-0.51.0-kr6' release-artifacts/korean-data-verification.txt
           grep -Fx 'result=PASS' release-artifacts/korean-data-verification.txt
           unzip -tq release-artifacts/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip
