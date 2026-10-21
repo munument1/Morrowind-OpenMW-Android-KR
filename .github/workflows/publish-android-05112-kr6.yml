@@ -27,8 +27,8 @@ jobs:
           gh run download 39529895733 --repo "$GITHUB_REPOSITORY" --name OpenMW-Android-0.51.0-12-Korean-Data-KR6-candidate --dir dist/data
           test -s dist/apk/OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk
           test -s dist/data/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip
-          (cd dist/apk && sha256sum -c OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk.sha256)
-          (cd dist/data && sha256sum -c OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip.sha256)
+          (cd dist/apk && sed 's|release-artifacts/||g' OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk.sha256 | sha256sum -c -)
+          (cd dist/data && sed 's|release-artifacts/||g' OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip.sha256 | sha256sum -c -)
           grep -Fx 'result=PASS' dist/data/korean-data-verification.txt
           grep -Fq 'zipalign_16k=PASS' dist/apk/16k-verification.txt
           unzip -tq dist/data/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip
