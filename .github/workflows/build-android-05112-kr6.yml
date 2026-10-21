@@ -49,6 +49,19 @@ jobs:
           chmod +x ci/patch-sdl2-ndk-r27.sh ci/build-korean-native-kr1.sh
           ./ci/patch-sdl2-ndk-r27.sh
           ./ci/build-korean-native-kr1.sh
+      - name: Preserve verified native runtime
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-Korean-Native-16K
+          path: |
+            native-artifacts/libs/*.so
+            native-artifacts/libopenmw.so.sha256
+            native-artifacts/page-size-report.txt
+            native-artifacts/korean-origin.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Assemble 0.51.0-12 APK and validate
         shell: bash
         env:
