@@ -272,4 +272,25 @@ OpenMW by the OpenMW Team since 2008</string>
     <string name="sdl_exit">Exit</string>
     <string name="sdl_start_error">An error occurred while trying to start the application. Please try again and/or reinstall.\n\nError: %1$s</string>
     <string name="navmesh_generating_cache">GENERATING NAVMESH CACHE</string>
+
+    <!-- Game folder validation -->
+    <string name="game_files_checking">Checking game files…</string>
+    <string name="game_files_selection_unchanged">The previous selection was not changed.</string>
+    <string name="game_files_storage_unavailable_title">Storage location not available</string>
+    <string name="game_files_storage_unavailable_message">The storage that holds the game folder is currently not available:\n%1$s\n\nInsert the SD card or wait until Android has mounted it. The saved selection is kept.</string>
+    <string name="game_files_folder_not_found_title">Folder not found</string>
+    <string name="game_files_folder_not_found_message">The game folder was not found:\n%1$s\n\nHas it been moved or renamed? If it is on an SD card, check that the card is inserted.</string>
+    <string name="game_files_access_denied_title">No read access</string>
+    <string name="game_files_access_denied_message">OpenMW is not allowed to read this file or folder:\n%1$s\n\nCheck that the storage permission is granted in the app settings. If it is, this device does not allow direct access to this location; copy the game files to the internal storage instead.</string>
+    <string name="game_files_missing_message">The selected folder is missing:\n%1$s\n\nPlease select the folder that contains the \"Morrowind.ini\" file and the \"Data Files\" directory.</string>
+    <string name="game_files_read_failed_title">Read error</string>
+    <string name="game_files_read_failed_message">The file could not be read:\n%1$s\n(%2$s)</string>
+
+    <!-- Legacy storage migration -->
+    <string name="legacy_storage_migration_progress">Moving saves and settings to the new storage location…</string>
+    <string name="legacy_storage_migration_done_title">Saves moved</string>
+    <string name="legacy_storage_migration_conflicts_message">Some files existed in both the old and the new location. The files in the new location were kept; the differing old versions were saved to:\n%1$s</string>
+    <string name="legacy_storage_migration_failed_title">Saves not moved</string>
+    <string name="legacy_storage_migration_no_space_message">Your saves and settings in\n%1$s\ncould not be moved because %2$s of free storage is needed. The old folder was not changed. Free some storage and restart OpenMW to try again.</string>
+    <string name="legacy_storage_migration_failed_message">Your saves and settings in\n%1$s\ncould not be moved (%2$s). The old folder was not changed. Restart OpenMW to try again.</string>
 </resources>
