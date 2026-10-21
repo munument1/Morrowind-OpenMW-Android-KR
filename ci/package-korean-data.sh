@@ -30,17 +30,48 @@ SOURCE_ZIP="$SOURCE_DIR/$KOREAN_ASSET"
 test -s "$SOURCE_ZIP"
 test "$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')" = "$KOREAN_ASSET_SHA256"
 
-unzip -q "$SOURCE_ZIP" \
-  'payload/mods/Morrowind_Korean_ReTranslation/*' \
-  'payload/resources/vfs/fonts/MysticCards.omwfont' \
-  'payload/resources/vfs/fonts/Galmuri11.ttf' \
-  'payload/resources/vfs/fonts/Galmuri11-OFL-1.1.md' \
-  -d "$SOURCE_DIR/extracted"
+# KR6 was produced on Windows: ZIP member names contain literal backslashes.
+# Extract only an explicit allowlist of data/fonts and normalize member paths.
+# Never extract executables, scripts or installer files from the PC release.
+python3 - "$SOURCE_ZIP" "$DATA_DIR" <<'PY'
+import pathlib
+import sys
+import zipfile
 
-cp -a "$SOURCE_DIR/extracted/payload/mods/Morrowind_Korean_ReTranslation/." "$DATA_DIR/"
-cp "$SOURCE_DIR/extracted/payload/resources/vfs/fonts/MysticCards.omwfont" "$DATA_DIR/Fonts/"
-cp "$SOURCE_DIR/extracted/payload/resources/vfs/fonts/Galmuri11.ttf" "$DATA_DIR/Fonts/"
-cp "$SOURCE_DIR/extracted/payload/resources/vfs/fonts/Galmuri11-OFL-1.1.md" "$DATA_DIR/Fonts/"
+archive = pathlib.Path(sys.argv[1])
+data_dir = pathlib.Path(sys.argv[2])
+mod_prefix = "payload/mods/Morrowind_Korean_ReTranslation/"
+font_prefix = "payload/resources/vfs/fonts/"
+fonts = {"MysticCards.omwfont", "Galmuri11.ttf", "Galmuri11-OFL-1.1.md"}
+seen = set()
+
+with zipfile.ZipFile(archive) as zf:
+    for member in zf.infolist():
+        name = member.filename.replace("\\", "/")
+        if name.startswith(mod_prefix):
+            relative = name[len(mod_prefix):]
+        elif name.startswith(font_prefix) and name[len(font_prefix):] in fonts:
+            relative = "Fonts/" + name[len(font_prefix):]
+        else:
+            continue
+        if not relative or name.endswith("/"):
+            continue
+        parts = pathlib.PurePosixPath(relative).parts
+        if any(part in ("", ".", "..") for part in parts) or pathlib.PurePosixPath(relative).is_absolute():
+            raise SystemExit(f"Unsafe ZIP member: {member.filename!r}")
+        if relative in seen:
+            raise SystemExit(f"Duplicate ZIP member: {relative!r}")
+        seen.add(relative)
+        target = data_dir.joinpath(*parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(member) as source, target.open("wb") as output:
+            import shutil
+            shutil.copyfileobj(source, output)
+
+if not seen:
+    raise SystemExit("No Korean data extracted from pinned KR6 archive")
+print(f"Extracted {len(seen)} Korean data/font files")
+PY
 
 # Core Korean data must all be present.
 for required in \
