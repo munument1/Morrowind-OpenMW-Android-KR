@@ -1,0 +1,132 @@
+name: Publish Android 0.51.0-12 Korean KR7 data
+
+on:
+  push:
+    branches: [release/android-05112-kr7-data]
+    paths: [.github/workflows/publish-android-05112-kr7.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-korean-0.51.0-12-kr7
+      APK_OLD: OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk
+      APK_NEW: OpenMW-Android-0.51.0-12-Korean-KR7-16K.apk
+      DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR7.zip
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Protect existing release
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "KR7 already released; refusing overwrite" >&2
+            exit 1
+          fi
+
+      - name: Assemble Android data from pinned Windows KR7
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-korean-data.sh
+          ./ci/package-korean-data.sh
+          grep -Fx 'source_tag=openmw-0.51.0-kr7' release-artifacts/korean-data-verification.txt
+          grep -Fx 'source_asset_sha256=4d6e049148e01e639b080b3cb42c295ac4f7f206021597d4e11721c8044cd4c8' release-artifacts/korean-data-verification.txt
+          grep -Fx 'result=PASS' release-artifacts/korean-data-verification.txt
+          (cd release-artifacts && sed 's|release-artifacts/||g' "$DATA.sha256" | sha256sum -c -)
+          unzip -tq "release-artifacts/$DATA"
+
+      - name: Validate Bloodmoon and Tribunal reference fixes in resulting ESP
+        run: |
+          python3 - <<'PY'
+          import os,struct,zipfile
+          region_names = {'Hirstaang Forest Region':'Solstheim, Hirstaang Forest',
+                          'Isinfier Plains Region':'Solstheim, Isinfier Plains'}
+          script_names = {'dbattackScript','dbattackScriptOLD'}
+          def records(buf):
+              p=0
+              while p<len(buf):
+                  tag,n,u,f=struct.unpack_from('<4sIII',buf,p)
+                  q=p+16+n
+                  assert q<=len(buf)
+                  yield tag,buf[p+16:q]
+                  p=q
+              assert p==len(buf)
+          def fields(buf):
+              p=0
+              while p<len(buf):
+                  tag,n=struct.unpack_from('<4sI',buf,p)
+                  q=p+8+n
+                  assert q<=len(buf)
+                  yield tag,buf[p+8:q]
+                  p=q
+              assert p==len(buf)
+          with zipfile.ZipFile('release-artifacts/'+os.environ['DATA']) as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              base='Morrowind_Korean_ReTranslation/'
+              buf=z.read(base+'Morrowind_Korean_ReTranslation.esp')
+              r,s=set(),set()
+              total=0
+              for typ,body in records(buf):
+                  total+=1
+                  if typ not in (b'REGN',b'SCPT'): continue
+                  d=dict(fields(body))
+                  if typ==b'REGN':
+                      name=d[b'NAME'].rstrip(b'\0').decode('ascii')
+                      if name in region_names:
+                          assert d[b'FNAM'].rstrip(b'\0').decode('ascii')==region_names[name]
+                          r.add(name)
+                  elif typ==b'SCPT':
+                      name=d[b'SCHD'][:32].split(b'\0')[0].decode('ascii')
+                      if name in script_names:
+                          src=d[b'SCTX']
+                          assert b'GetPCCell "Seyda Neen, Census and Excise Office"' in src
+                          assert '세이다 닌, 인구조사 및 세무국'.encode('utf8') not in src
+                          s.add(name)
+              assert total==48146, total
+              assert r==set(region_names),r
+              assert s==script_names,s
+              assert len([x for x in names if x.startswith(base+'video/') and x.endswith('.srt')])==10
+              assert base+'Fonts/MysticCards.omwfont' in names
+              assert base+'Fonts/Galmuri11.ttf' in names
+              print('PASS: two REGN, two SCPT, 48146 records, ten SRT, fonts')
+          PY
+
+      - name: Preserve proven 16 KiB Android APK without rebuilding
+        run: |
+          set -euo pipefail
+          mkdir -p work/apk
+          gh release download android-korean-0.51.0-12-kr6 --repo "$GITHUB_REPOSITORY" --pattern "$APK_OLD" --dir work/apk
+          echo "42e5f909b05e516519502abdf0bded3023e1952a7218d8a493f8b09a838e5a4f  work/apk/$APK_OLD" | sha256sum -c -
+          cp "work/apk/$APK_OLD" "release-artifacts/$APK_NEW"
+          (cd release-artifacts && sha256sum "$APK_NEW" > "$APK_NEW.sha256")
+          unzip -tq "release-artifacts/$APK_NEW"
+
+      - name: Publish Android KR7 data release
+        run: |
+          set -euo pipefail
+          cat >release-artifacts/KR7-NOTES.md <<'NOTES'
+          ## OpenMW Android 0.51.0-12 Korean KR7
+
+          KR7 데이터 ZIP에 Windows KR7의 네 건의 스크립트 참조 수정 반영:
+          - Bloodmoon 카르니우스 이동 문제 (REGN 지역명 2건).
+          - Tribunal 다크 브라더후드 습격 문제 (GetPCCell 내부 참조 2건).
+          - KR6의 데이드릭 문자/음성 자막, 기타 한국어 번역과 폰트 유지.
+
+          APK는 기존 Android 0.51.0-12 KR6 16KiB 검증판과 바이트 및 SHA-256이 완전히 동일합니다. 새로 네이티브를 컴파일한 빌드가 아닙니다.
+
+          기존 KR6 Android APK 사용자: APK 재설치 없이 **Data-KR7.zip의 번역 데이터만 교체**하면 됩니다.
+          신규 사용자: APK 설치 + 데이터 ZIP 별도 적용 필요. 원본 Morrowind 게임 데이터는 별도로 준비해야 합니다.
+          정적 레코드/ZIP/SHA-256 검증 통과. 실제 게임 내 퀘스트 재현 테스트는 미실시.
+          NOTES
+          gh release create "$TAG" \
+            "release-artifacts/$DATA" "release-artifacts/$DATA.sha256" \
+            "release-artifacts/$APK_NEW" "release-artifacts/$APK_NEW.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title 'OpenMW Android 0.51.0-12 Korean KR7 (16 KiB)' \
+            --notes-file release-artifacts/KR7-NOTES.md --latest
