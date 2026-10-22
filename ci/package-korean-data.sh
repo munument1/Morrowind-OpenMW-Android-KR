@@ -111,8 +111,9 @@ test "$(find "$DATA_DIR/video" -maxdepth 1 -type f -name '*.srt' | wc -l)" -eq 1
 grep -Fq 'Galmuri11.ttf' "$DATA_DIR/Fonts/MysticCards.omwfont"
 
 cat > "$STAGING_DIR/README-ANDROID-KO.txt" <<'EOF'
-OpenMW Android 0.51.0-12 한국어 데이터 패키지
+OpenMW Android 0.51.0-12 한국어 데이터 패키지 (PC OpenMW KR7 기반)
 
+KR7에서 수정된 Bloodmoon 카르니우스 이동 및 Tribunal 다크 브라더후드 셀 참조 오류를 반영했습니다.
 이 압축 파일은 한국어 번역 데이터, 갈무리11 기반 MysticCards 폰트,
 그리고 본편 3개 + Bloodmoon 7개 영상용 한국어 SRT 자막을 포함합니다.
 원본 Morrowind BIK 영상과 Bethesda 게임 데이터는 포함하지 않습니다.
