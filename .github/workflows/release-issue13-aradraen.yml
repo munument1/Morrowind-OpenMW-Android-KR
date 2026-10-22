@@ -1,0 +1,80 @@
+name: Publish Android 0.51.0-12 KR8 Aradraen data
+on:
+  push:
+    branches:
+      - main
+      - fix/issue13-aradraen-cell
+    paths:
+      - ci/release_issue13_aradraen.py
+      - .github/workflows/release-issue13-aradraen.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_TAG: android-korean-0.51.0-12-kr7
+      SOURCE_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR7.zip
+      SOURCE_DATA_SHA256: d1a8e4ef043a265a39e92d133e6f09860d62c7cff11ea1e4778c9f71b10651d6
+      SOURCE_APK: OpenMW-Android-0.51.0-12-Korean-KR7-16K.apk
+      SOURCE_APK_SHA256: 42e5f909b05e516519502abdf0bded3023e1952a7218d8a493f8b09a838e5a4f
+      OUTPUT_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip
+      OUTPUT_APK: OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk
+      OUTPUT_TAG: android-korean-0.51.0-12-kr8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact published Android KR7 assets
+        run: |
+          set -euo pipefail
+          mkdir -p input output
+          gh release download "$SOURCE_TAG" --pattern "$SOURCE_DATA" --pattern "$SOURCE_APK" --dir input
+          echo "$SOURCE_DATA_SHA256  input/$SOURCE_DATA" | sha256sum --check
+          echo "$SOURCE_APK_SHA256  input/$SOURCE_APK" | sha256sum --check
+      - name: Validate single CEL translation and preserve all other KR7 data
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/release_issue13_aradraen.py
+          python3 ci/release_issue13_aradraen.py \
+            --variant android --source "input/$SOURCE_DATA" \
+            --output "output/$OUTPUT_DATA" \
+            --expected-source-sha256 "$SOURCE_DATA_SHA256" \
+            | tee output/issue13-verification.json
+          ( cd output && sha256sum --check "$OUTPUT_DATA.sha256" )
+          cp "input/$SOURCE_APK" "output/$OUTPUT_APK"
+          echo "$SOURCE_APK_SHA256  output/$OUTPUT_APK" | sha256sum --check
+          ( cd output && sha256sum "$OUTPUT_APK" > "$OUTPUT_APK.sha256" )
+      - name: Store verified candidate ZIP and unchanged APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-KR8-candidate
+          path: output/
+          retention-days: 14
+      - name: Publish Android KR8 only from main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          if gh release view "$OUTPUT_TAG" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite it"
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR8 — Issue #13
+
+          - Added the missing Area Effect Arrows interior CELL translation:
+            'Vivec, Aradraen: Fletcher' → '비벡, 아라드라엔: 화살 제작자'.
+          - The **only** changed entry in KR7 data ZIP is Morrowind_Korean_ReTranslation.cel.
+          - Korean ESP, scripts, fonts, subtitles, other sidecars and every other data entry are byte-for-byte unchanged.
+          - The included APK has exactly the same SHA-256 as the KR7 APK; existing KR7 APK users only need to replace the data ZIP.
+          - KR7 asset checksums and the exact CEL source checksum are verified before patching. ZIP entry parity and CRC are checked.
+
+          Static verification passed; no Android device/Windows in-game recreation is claimed. Issue #13 remains open for field verification.
+          EOF
+          gh release create "$OUTPUT_TAG" \
+            "output/$OUTPUT_DATA" "output/$OUTPUT_DATA.sha256" \
+            "output/$OUTPUT_APK" "output/$OUTPUT_APK.sha256" \
+            --title 'OpenMW Android 0.51.0-12 Korean KR8 — Aradraen CELL fix' \
+            --notes-file release-notes.md --target "$GITHUB_SHA" --latest
