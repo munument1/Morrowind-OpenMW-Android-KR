@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build an Android-ready Korean data directory from the exact Windows KR6
+# Build an Android-ready Korean data directory from the exact Windows KR7
 # translation payload that has already been tested with OpenMW 0.51.0.
 # Only Korean data/fonts/subtitles are reused; Windows executables and installer
 # files are never copied into the Android package.
 KOREAN_REPO='munument1/-KR-openmw'
-KOREAN_TAG='openmw-0.51.0-kr6'
-KOREAN_ASSET='Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip'
-KOREAN_ASSET_SHA256='ce500bbea1d9527edc2304cd2dc214df6da4f9e90233604416a7b6fc61469e31'
+KOREAN_TAG='openmw-0.51.0-kr7'
+KOREAN_ASSET='Morrowind-Korean-OpenMW-0.51.0-KR7-Full.zip'
+KOREAN_ASSET_SHA256='4d6e049148e01e639b080b3cb42c295ac4f7f206021597d4e11721c8044cd4c8'
 
 WORK='work/korean-data'
 SOURCE_DIR="$WORK/source"
 STAGING_DIR="$WORK/staging"
 DATA_DIR="$STAGING_DIR/Morrowind_Korean_ReTranslation"
 OUTDIR='release-artifacts'
-OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip"
+OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-Data-KR7.zip"
 
 rm -rf "$WORK"
 mkdir -p "$SOURCE_DIR" "$DATA_DIR/Fonts" "$OUTDIR"
@@ -30,7 +30,7 @@ SOURCE_ZIP="$SOURCE_DIR/$KOREAN_ASSET"
 test -s "$SOURCE_ZIP"
 test "$(sha256sum "$SOURCE_ZIP" | awk '{print $1}')" = "$KOREAN_ASSET_SHA256"
 
-# KR6 was produced on Windows: ZIP member names contain literal backslashes.
+# KR7 was produced on Windows: ZIP member names contain literal backslashes.
 # Extract only an explicit allowlist of data/fonts and normalize member paths.
 # Never extract executables, scripts or installer files from the PC release.
 python3 - "$SOURCE_ZIP" "$DATA_DIR" <<'PY'
@@ -69,7 +69,7 @@ with zipfile.ZipFile(archive) as zf:
             shutil.copyfileobj(source, output)
 
 if not seen:
-    raise SystemExit("No Korean data extracted from pinned KR6 archive")
+    raise SystemExit("No Korean data extracted from pinned KR7 archive")
 print(f"Extracted {len(seen)} Korean data/font files")
 PY
 
@@ -87,7 +87,7 @@ done
 test -d "$DATA_DIR/l10n"
 
 # The Android runtime patch maps video/foo.bik -> video/foo.srt through VFS.
-# Keep the exact ten subtitle tracks that were validated on the Windows KR6
+# Keep the exact ten subtitle tracks that were validated on the Windows KR7
 # runtime. Original BIK files are neither modified nor redistributed.
 SUBTITLES=(
   mw_intro
