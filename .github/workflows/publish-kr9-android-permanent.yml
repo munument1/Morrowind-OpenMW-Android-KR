@@ -216,7 +216,7 @@ jobs:
             "release-artifacts/$FINAL_APK" "release-artifacts/$FINAL_APK.sha256" \
             "release-artifacts/$FINAL_DATA" "release-artifacts/$FINAL_DATA.sha256" \
             --title 'OpenMW Android 0.51.0-12 Korean KR9 — permanently signed separate app' \
-            --notes-file release-artifacts/notes.md --target "$GITHUB_SHA" --latest
+            --notes-file release-artifacts/notes.md --target "$(git rev-parse HEAD)" --latest
 
       - name: Delete private signing materials from runner
         if: always()
