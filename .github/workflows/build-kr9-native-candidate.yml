@@ -1,0 +1,81 @@
+name: Build Android KR9 patched native candidate
+on:
+  push:
+    branches:
+      - feature/kr9-korean-topic-boundaries
+    paths:
+      - ci/build-korean-native-kr9.sh
+      - .github/workflows/build-kr9-native-candidate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      JOBS: '4'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use preinstalled Android SDK and NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+
+      - name: Install build tools and NDK 27d
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git curl wget patch unzip zip python3 perl autoconf automake libtool libtool-bin pkg-config bison flex gettext gperf nasm yasm texinfo bzip2 xz-utils
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Restore Android 0.51 native build caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            source/buildscripts/downloads
+            source/buildscripts/prefix/arm64
+            source/buildscripts/build/arm64
+            !source/buildscripts/build/arm64/openmw-prefix
+          key: ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-${{ hashFiles('source/buildscripts/CMakeLists.txt', 'source/buildscripts/include/version.sh', 'ci/build-korean-native-kr1.sh', 'ci/patch-sdl2-ndk-r27.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-v2-
+
+      - name: Build OpenMW 0.51 Android with Korean KR9 topic boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ci/patch-sdl2-ndk-r27.sh ci/build-korean-native-kr9.sh
+          ./ci/patch-sdl2-ndk-r27.sh
+          ./ci/build-korean-native-kr9.sh
+          grep -Fx "korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4" native-artifacts/korean-origin.txt
+          grep -Fq 'required_min_load_align=0x4000' native-artifacts/page-size-report.txt
+
+      - name: Upload KR9 native binary and verification logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR9-native-candidate-16K
+          path: |
+            native-artifacts/libopenmw.so
+            native-artifacts/libopenmw.so.sha256
+            native-artifacts/libs/*.so
+            native-artifacts/upstream-libopenmw.sha256
+            native-artifacts/page-size-report.txt
+            native-artifacts/korean-origin.txt
+            native-artifacts/korean-native-build.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 30
