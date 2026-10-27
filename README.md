@@ -32,8 +32,6 @@
 
 KR8은 KR7 대비 한국어 데이터의 `Morrowind_Korean_ReTranslation.cel`에 있는 *Area Effect Arrows* 실내 명칭을 수정한 버전입니다. **KR8 APK는 KR7 APK와 바이트 단위로 동일**하므로 KR7 사용자는 데이터 ZIP만 교체하면 됩니다.
 
-> Windows 엔진의 대화·저널 하이퍼링크 오인식 개선([PR #14](https://github.com/munument1/Morrowind-OpenMW-KR/pull/14))은 별도 검토 중이며, 현재 배포된 Android KR8 APK에는 반영되지 않았습니다.
-
 - 한국어/CJK 대화 토픽 검색 보정
 - UTF-8 BOM 기반 `.cel` / `.top` / `.mrk` 사이드카 지원
 - UTF-8 한글이 포함된 ESM/ESP 문자열 처리 보정
