@@ -5,6 +5,7 @@ on:
     branches: [release/android-05112-kr9-standalone]
     paths:
       - '.github/workflows/build-publish-kr9-standalone.yml'
+      - 'ci/package-android-kr9-standalone.sh'
   workflow_dispatch:
 
 permissions:
