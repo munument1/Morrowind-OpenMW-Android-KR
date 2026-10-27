@@ -168,6 +168,11 @@ class MyApp : Application() {
 
     /** Cheap check (a few stat calls) whether the legacy tree still has to be moved. */
     private fun legacyUserStorageMigrationNeeded(): Boolean {
+        // Standalone KR9 must never move/delete legacy shared /omw data while
+        // the original KR8 application may still be installed and using it.
+        if (packageName == "com.ast.openmw.kr9")
+            return false
+
         if (legacyMigrationAttemptFailed)
             return false
 
