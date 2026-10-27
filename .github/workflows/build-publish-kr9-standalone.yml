@@ -1,0 +1,137 @@
+name: Build and publish side-by-side Android KR9
+
+on:
+  push:
+    branches: [release/android-05112-kr9-standalone]
+    paths:
+      - '.github/workflows/build-publish-kr9-standalone.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  verified-standalone-kr9:
+    if: github.ref == 'refs/heads/release/android-05112-kr9-standalone'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NATIVE_RUN: '40514491647'
+      NATIVE_SHA: cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9
+      OUTPUT_APK: OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk
+      OUTPUT_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR9.zip
+      RELEASE_TAG: android-korean-0.51.0-12-kr9-standalone
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android SDK and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+
+      - name: Download pinned, fully compiled KR9 native runtime
+        run: |
+          set -euo pipefail
+          mkdir -p native-artifacts/libs release-artifacts
+          gh run download "$NATIVE_RUN" --repo "$GITHUB_REPOSITORY" --name Android-KR9-native-candidate-16K --dir native-artifacts
+          echo "$NATIVE_SHA  native-artifacts/libopenmw.so" | sha256sum -c -
+          test "$(awk 'NR==1{print $1}' native-artifacts/libopenmw.so.sha256)" = "$NATIVE_SHA"
+          grep -Fxq 'korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4' native-artifacts/korean-origin.txt
+          grep -Fxq 'required_min_load_align=0x4000' native-artifacts/page-size-report.txt
+          for so in libopenmw.so libopenal.so libSDL2.so libGL.so libcollada-dom2.5-dp.so libc++_shared.so; do
+            test -s "native-artifacts/libs/$so"
+          done
+
+      - name: Verify source does not share KR8 application identity or migrate KR8 saves
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId "com.ast.openmw.kr9"' source/app/build.gradle
+          grep -Fq 'packageName == "com.ast.openmw.kr9"' source/app/src/main/java/utils/MyApp.kt
+          grep -Fq 'OpenMW 한국어 KR9' source/app/src/main/res/values-ko/strings.xml
+          grep -Fq 'OpenMW KR9' source/app/src/main/res/values/strings.xml
+          if grep -Fq 'applicationId "com.ast.openmw"' source/app/build.gradle; then
+            echo '::error::Old KR8 package ID still active'
+            exit 1
+          fi
+
+      - name: Assemble and test isolated Android 0.51.0-12 KR9 APK
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-android-kr9-standalone.sh
+          NATIVE_INPUT=native-artifacts ./ci/package-android-kr9-standalone.sh
+          test -s "release-artifacts/$OUTPUT_APK"
+          grep -Fxq 'result=PASS' release-artifacts/16k-verification.txt
+          grep -Fxq 'standalone_application_id=com.ast.openmw.kr9' release-artifacts/16k-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "release-artifacts/$OUTPUT_APK"
+
+      - name: Reuse genuine KR8 translation data byte-identically
+        run: |
+          set -euo pipefail
+          mkdir -p input
+          gh release download android-korean-0.51.0-12-kr8 \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip' \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip.sha256' \
+            --dir input
+          (cd input && sed 's|release-artifacts/||g' *.sha256 | sha256sum --check)
+          unzip -tq input/OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip
+          cp input/OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip "release-artifacts/$OUTPUT_DATA"
+          test "$(sha256sum "release-artifacts/$OUTPUT_DATA" | awk '{print $1}')" = \
+            "$(sha256sum input/OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip | awk '{print $1}')"
+          (cd release-artifacts && sha256sum "$OUTPUT_DATA" > "$OUTPUT_DATA.sha256")
+          (cd release-artifacts && sha256sum --check "$OUTPUT_APK.sha256" && sha256sum --check "$OUTPUT_DATA.sha256")
+
+      - name: Save verified APK, data and installation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR9-Standalone-Verified
+          path: |
+            release-artifacts/*.apk
+            release-artifacts/*.zip
+            release-artifacts/*.sha256
+            release-artifacts/16k-verification.txt
+            release-artifacts/kr9-signer.txt
+            release-artifacts/*page-size-report.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish separate-install KR9 (never overwrite KR8)
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo '::error::KR9 standalone release already exists; refusing overwrite'
+            exit 1
+          fi
+          cat > release-artifacts/notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR9 — separate installation
+
+          **This is a NEW, separate Android app, not an upgrade over KR8.**
+
+          - KR9 has the Korean dialogue/journal automatic-link fix in the rebuilt native OpenMW engine.
+          - Install under the distinct package `com.ast.openmw.kr9`; the existing KR8 app `com.ast.openmw` remains untouched.
+          - The legacy public OpenMW storage migration was disabled in this standalone variant to avoid moving or deleting old shared saves.
+          - Copy/install the KR9 translation data ZIP as usual. It is byte-identical to the KR8 data package.
+          - Android 0.51.0-12 source baseline, pinned native SHA-256, Kotlin/Gradle unit tests, Android APK signature, JNI native payload and 16 KiB alignment were verified in GitHub Actions.
+          - In-game/device QA was intentionally waived, not performed.
+
+          **Important data and signing limitations**
+
+          - Do not uninstall KR8 or delete existing game/save files. The new standalone app has its own app-private settings and save directory. Reconfigure the game data folder in KR9; transfer saves only after a verified backup.
+          - The original KR8 APK signing private key was lost. This standalone APK is signed with an independent runner-generated debug key, which is **not preserved**. Subsequent APK updates to this KR9 package will not be upgrade-compatible unless the exact signing key is recovered. Back up saves before any replacement.
+          - This package is provided as a distinct, fresh-install build; do not represent it as a seamless upgrade from KR8.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "release-artifacts/$OUTPUT_APK" "release-artifacts/$OUTPUT_APK.sha256" \
+            "release-artifacts/$OUTPUT_DATA" "release-artifacts/$OUTPUT_DATA.sha256" \
+            --title 'OpenMW Android 0.51.0-12 Korean KR9 — separate-install build' \
+            --notes-file release-artifacts/notes.md --target "$GITHUB_SHA" --latest
