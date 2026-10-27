@@ -1,0 +1,225 @@
+name: Publish Android KR9 with persistent signing key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_BRANCH: release/android-05112-kr9-permanent-signing
+      NATIVE_RUN: '40514491647'
+      NATIVE_SHA: cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9
+      CERT_SHA: 509d883eb7c75eeb3b6c7203ffc4840eaf1b68a0b3f3db4d50708fcb772bff45
+      PACKAGE: com.ast.openmw.korean
+      FINAL_APK: OpenMW-Android-0.51.0-12-Korean-KR9-Permanent-16K.apk
+      FINAL_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR9.zip
+      RELEASE_TAG: android-korean-0.51.0-12-kr9-permanent
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_BRANCH }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Require encrypted permanent signing key and private recovery secret
+        shell: bash
+        env:
+          ENC_KEYSTORE: ${{ secrets.ANDROID_KR9_ENCRYPTED_KEYSTORE_JSON }}
+          KEY_HEX: ${{ secrets.ANDROID_KR9_SIGNING_KEY_HEX }}
+        run: |
+          set -euo pipefail
+          test -n "$ENC_KEYSTORE"
+          [[ "$KEY_HEX" =~ ^[0-9a-fA-F]{64}$ ]]
+          python3 -m pip install --disable-pip-version-check --quiet cryptography==46.0.4
+          umask 077
+          python3 - <<'PY'
+          import os, json, base64, zlib
+          from pathlib import Path
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+          payload=json.loads(os.environ['ENC_KEYSTORE'])
+          assert payload['schema']=='openmw-korean-android-signing-v1'
+          assert payload['cipher']=='AES-256-GCM'
+          assert payload['compression']=='zlib'
+          assert payload['certificate_sha256']==os.environ['CERT_SHA']
+          assert payload['package']==os.environ['PACKAGE']
+          secret=bytes.fromhex(os.environ['KEY_HEX'])
+          plaintext=AESGCM(secret).decrypt(
+              base64.b64decode(payload['nonce_base64']),
+              base64.b64decode(payload['ciphertext_base64']),
+              b'openmw-korean-android-signing-v1')
+          obj=json.loads(zlib.decompress(plaintext))
+          assert obj['certificate_sha256']==os.environ['CERT_SHA']
+          assert obj['package']==os.environ['PACKAGE']
+          assert obj['alias']=='morrowind-openmw-korean-android'
+          assert obj['keystore_password']==obj['key_password']
+          temp=Path(os.environ['RUNNER_TEMP'])
+          (temp/'kr9-permanent.p12').write_bytes(base64.b64decode(obj['keystore_base64']))
+          (temp/'kr9-password.txt').write_text(obj['keystore_password'],encoding='utf-8')
+          for path in [temp/'kr9-permanent.p12',temp/'kr9-password.txt']:
+              path.chmod(0o600)
+          print('Persistent Android signing keystore decrypted with authenticated AES-GCM; secret material withheld.')
+          PY
+
+      - name: Prepare Android toolchain and pinned KR9 native runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+          mkdir -p native-artifacts/libs stage release-artifacts
+          gh run download "$NATIVE_RUN" --repo "$GITHUB_REPOSITORY" --name Android-KR9-native-candidate-16K --dir native-artifacts
+          echo "$NATIVE_SHA  native-artifacts/libopenmw.so" | sha256sum -c -
+          test "$(awk 'NR==1{print $1}' native-artifacts/libopenmw.so.sha256)" = "$NATIVE_SHA"
+          grep -Fxq 'korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4' native-artifacts/korean-origin.txt
+          grep -Fxq 'required_min_load_align=0x4000' native-artifacts/page-size-report.txt
+
+      - name: Assemble KR9 as a third independent app without deleting KR8 or first KR9
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId "com.ast.openmw.korean"' source/app/build.gradle
+          grep -Fq 'packageName == "com.ast.openmw.korean"' source/app/src/main/java/utils/MyApp.kt
+          if grep -Fq 'applicationId "com.ast.openmw.kr9"' source/app/build.gradle; then
+            echo '::error::Accidentally using the first KR9 package ID'
+            exit 1
+          fi
+          chmod +x ci/package-android-kr9-standalone.sh
+          NATIVE_INPUT=native-artifacts ./ci/package-android-kr9-standalone.sh
+          apk=release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk
+          test -s "$apk"
+          grep -Fxq 'result=PASS' release-artifacts/16k-verification.txt
+          grep -Fxq 'standalone_application_id=com.ast.openmw.korean' release-artifacts/16k-verification.txt
+
+      - name: Strip temporary debug signature, align, sign with permanent key
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          original=Path('release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk')
+          out=Path('stage/kr9-no-v1-signature.apk')
+          def signature(name):
+              name=name.upper()
+              if not name.startswith('META-INF/'):return False
+              stem=name.rsplit('/',1)[-1]
+              return stem=='MANIFEST.MF' or stem.endswith(('.SF','.RSA','.DSA','.EC'))
+          with ZipFile(original) as src,ZipFile(out,'w') as dst:
+              dst.comment=src.comment
+              for info in src.infolist():
+                  if not signature(info.filename):
+                      dst.writestr(info,src.read(info))
+          PY
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -P 16 -f 4 stage/kr9-no-v1-signature.apk stage/kr9-aligned.apk
+          "$tools/zipalign" -c -P 16 4 stage/kr9-aligned.apk
+          export KS_PASS="$(cat "$RUNNER_TEMP/kr9-password.txt")"
+          echo "::add-mask::$KS_PASS"
+          "$tools/apksigner" sign \
+            --ks "$RUNNER_TEMP/kr9-permanent.p12" --ks-type PKCS12 \
+            --ks-key-alias morrowind-openmw-korean-android \
+            --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out "release-artifacts/$FINAL_APK" stage/kr9-aligned.apk
+          "$tools/apksigner" verify --verbose --print-certs "release-artifacts/$FINAL_APK" > stage/kr9-signing-report.txt
+          grep -Fiq "Signer #1 certificate SHA-256 digest: $CERT_SHA" stage/kr9-signing-report.txt
+          "$tools/zipalign" -c -P 16 4 "release-artifacts/$FINAL_APK"
+          "$tools/aapt" dump badging "release-artifacts/$FINAL_APK" | head -n 1 > stage/kr9-package.txt
+          grep -Fq "name='$PACKAGE'" stage/kr9-package.txt
+          grep -Fq "versionCode='5112'" stage/kr9-package.txt
+          grep -Fq "versionName='0.51.0-12'" stage/kr9-package.txt
+          test "$(unzip -p "release-artifacts/$FINAL_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')" = "$NATIVE_SHA"
+          # Confirm the signed APK has no unrelated content changes after signing.
+          python3 - <<'PY'
+          import os
+          from zipfile import ZipFile
+          old='release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk'
+          new='release-artifacts/'+os.environ['FINAL_APK']
+          def signature(name):
+              name=name.upper()
+              if not name.startswith('META-INF/'):return False
+              stem=name.rsplit('/',1)[-1]
+              return stem=='MANIFEST.MF' or stem.endswith(('.SF','.RSA','.DSA','.EC'))
+          with ZipFile(old) as a,ZipFile(new) as b:
+              ad={n:a.read(n) for n in a.namelist() if not signature(n)}
+              bd={n:b.read(n) for n in b.namelist() if not signature(n)}
+              if ad!=bd:
+                  raise SystemExit('Signed APK changed non-signing resources!')
+          print('Persistent signing APK resource parity PASS')
+          PY
+
+      - name: Preserve released Korean KR8 translation payload byte-identically
+        run: |
+          set -euo pipefail
+          mkdir -p input
+          gh release download android-korean-0.51.0-12-kr8 \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip' \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip.sha256' --dir input
+          (cd input && sed 's|release-artifacts/||g' *.sha256 | sha256sum --check)
+          cp input/OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip "release-artifacts/$FINAL_DATA"
+          (cd release-artifacts && sha256sum "$FINAL_APK" > "$FINAL_APK.sha256")
+          (cd release-artifacts && sha256sum "$FINAL_DATA" > "$FINAL_DATA.sha256")
+          (cd release-artifacts && sha256sum --check "$FINAL_APK.sha256" && sha256sum --check "$FINAL_DATA.sha256")
+          test "$(sha256sum "release-artifacts/$FINAL_DATA" | awk '{print $1}')" = \
+            "$(sha256sum input/OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip | awk '{print $1}')"
+
+      - name: Save verified signed candidate (never upload signing keys)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR9-Permanent-Signed-Verified
+          path: |
+            release-artifacts/*-Permanent-16K.apk
+            release-artifacts/*.zip
+            release-artifacts/*.sha256
+            release-artifacts/16k-verification.txt
+            stage/kr9-signing-report.txt
+            stage/kr9-package.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish permanently signed Android KR9
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo '::error::Persistent KR9 release already exists'
+            exit 1
+          fi
+          cat > release-artifacts/notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR9 — persistent signing
+
+          - Korean dialogue and journal automatic hyperlink recognition fixed.
+          - New stable app identity `com.ast.openmw.korean` safely coexists with old KR8 `com.ast.openmw` and first KR9 `com.ast.openmw.kr9`.
+          - KR8 translation data ZIP remains byte-identical; 16 KiB ARM64 engine verified.
+          - Permanently backed-up APK signing certificate SHA-256: `509d883eb7c75eeb3b6c7203ffc4840eaf1b68a0b3f3db4d50708fcb772bff45`.
+          - Future releases using the same package ID and signing key and a higher versionCode can be installed as updates.
+          - Existing old-KR9 and KR8 installations cannot update in-place to this **separate stable app**.
+          - Back up saves and manually configure game data in the new app. Do not uninstall prior apps before saving your data.
+          - Automated tests, native binary, APK signature, payload identity, 16 KiB alignment and SHA-256 passed; device testing intentionally waived.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "release-artifacts/$FINAL_APK" "release-artifacts/$FINAL_APK.sha256" \
+            "release-artifacts/$FINAL_DATA" "release-artifacts/$FINAL_DATA.sha256" \
+            --title 'OpenMW Android 0.51.0-12 Korean KR9 — permanently signed separate app' \
+            --notes-file release-artifacts/notes.md --target "$GITHUB_SHA" --latest
+
+      - name: Delete private signing materials from runner
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/kr9-permanent.p12" "$RUNNER_TEMP/kr9-password.txt"
