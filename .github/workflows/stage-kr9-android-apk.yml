@@ -41,7 +41,9 @@ jobs:
           (cd reports && sha256sum *.so | tee original-library-hashes.txt)
           gh run download "$NATIVE_RUN" --name Android-KR9-native-candidate-16K --dir native
           echo "$EXPECTED_KR9_NATIVE_SHA256  native/libopenmw.so" | sha256sum --check
-          (cd native && sha256sum --check libopenmw.so.sha256)
+          # Original artifact checksum embeds "native-artifacts/" from the
+          # producing job; the downloaded artifact is flattened under native/.
+          test "$(awk 'NR==1{print $1}' native/libopenmw.so.sha256)" = "$EXPECTED_KR9_NATIVE_SHA256"
           test -s native/korean-origin.txt
           grep -Fx 'korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4' native/korean-origin.txt
           grep -Fx 'required_min_load_align=0x4000' native/page-size-report.txt
