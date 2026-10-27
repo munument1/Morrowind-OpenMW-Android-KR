@@ -106,10 +106,12 @@ grep -Fq '<item>매우 높음</item>' source/app/src/main/res/values-ko/strings.
   cd source
   chmod +x gradlew
   ./gradlew --no-daemon :app:testMainlineDebugUnitTest --tests file.IniConverterTest
-  ./gradlew --no-daemon :app:assembleMainlineDebug
+  # Permanent release must NOT ship a debuggable Android build.
+  ./gradlew --no-daemon :app:assembleMainlineRelease
 )
 
-APK='source/app/build/outputs/apk/mainline/debug/app-mainline-debug.apk'
+APK="$(find source/app/build/outputs/apk/mainline/release -maxdepth 1 -type f -name 'app-mainline-release*.apk' | sort | head -n 1)"
+test -n "$APK"
 test -s "$APK"
 
 for library in libopenmw.so libopenal.so libSDL2.so libGL.so libcollada-dom2.5-dp.so libc++_shared.so; do
@@ -156,11 +158,13 @@ rm -rf "$TMPDIR"
 
 OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk"
 cp "$APK" "$OUT"
-"$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$OUT" | tee "$OUTDIR/kr9-signer.txt"
-if grep -Fiq 'Signer #1 certificate SHA-256 digest: 5eea68aceb434506b04f563532460c83330145f3d4ca77ad6ef41792d05985f8' "$OUTDIR/kr9-signer.txt"; then
-  echo 'Unexpected reuse of lost KR8 certificate: cannot classify as fresh-install identity' >&2
+# Keep this candidate unsigned: only the separate, secret-gated workflow
+# may sign and publish it using the backed-up permanent signing identity.
+if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$OUT" >/dev/null 2>&1; then
+  echo '::error::Permanent release staging APK was unexpectedly pre-signed' >&2
   exit 1
 fi
+echo 'Candidate is intentionally unsigned; signing is restricted to final publisher.' > "$OUTDIR/kr9-signer.txt"
 # Write a checksum using a path relative to release-artifacts, so that
 # both local verification and release downloads can verify it reliably.
 ( cd "$OUTDIR" && sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256" )
@@ -175,7 +179,7 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   echo 'standalone_application_id=com.ast.openmw.korean'
   echo 'original_application_id=com.ast.openmw'
   echo 'legacy_shared_storage_migration=disabled_for_standalone'
-  echo 'signing=ephemeral_debug_certificate (not reusable for future upgrades)'
+  echo 'signing=unsigned_release_candidate (requires persistent key)'
   echo 'video_subtitles_engine=enabled'
   echo 'required_page_size=16384'
   echo 'versionCode=5112'
@@ -193,4 +197,4 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   cat "$OUTDIR/apk-page-size-report.txt"
 } > "$OUTDIR/16k-verification.txt"
 
-echo 'Verified Korean 0.51.0-12 KR9 standalone APK with patches 0001-0008 and 16 KiB native ELF alignment.'
+echo 'Verified Korean 0.51.0-12 KR9 permanent unsigned RELEASE candidate with patches 0001-0008 and 16 KiB native ELF alignment.'
