@@ -24,7 +24,15 @@
 
 ## 🇰🇷 한국어 지원판 추가 사항
 
-현재 작업 기준은 **OpenMW Android 0.51.0-10**입니다.
+현재 공개된 최신 한국어 배포판은 **OpenMW Android 0.51.0-12 Korean KR8**입니다.
+
+- [KR8 릴리스 페이지](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr8)
+- APK: `OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk`
+- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip`
+
+KR8은 KR7 대비 한국어 데이터의 `Morrowind_Korean_ReTranslation.cel`에 있는 *Area Effect Arrows* 실내 명칭을 수정한 버전입니다. **KR8 APK는 KR7 APK와 바이트 단위로 동일**하므로 KR7 사용자는 데이터 ZIP만 교체하면 됩니다.
+
+> Windows 엔진의 대화·저널 하이퍼링크 오인식 개선([PR #14](https://github.com/munument1/Morrowind-OpenMW-KR/pull/14))은 별도 검토 중이며, 현재 배포된 Android KR8 APK에는 반영되지 않았습니다.
 
 - 한국어/CJK 대화 토픽 검색 보정
 - UTF-8 BOM 기반 `.cel` / `.top` / `.mrk` 사이드카 지원
@@ -72,7 +80,7 @@
 | Android/ChromeOS 기반 프로젝트 | [Andiweli / OpenMW-Android](https://github.com/Andiweli/OpenMW-Android) |
 | OpenMW 엔진 | [OpenMW / openmw](https://github.com/OpenMW/openmw) |
 | 셰이더 프레임워크 | [OMWFX Shaders](https://gitlab.com/vtastek/omwfx-shaders) |
-| 한국어 번역/런타임 패치 | [munument1 / -KR-openmw](https://github.com/munument1/-KR-openmw) |
+| 한국어 번역/런타임 패치 | [munument1 / Morrowind-OpenMW-KR](https://github.com/munument1/Morrowind-OpenMW-KR) |
 
 ## 📦 준비 사항
 
