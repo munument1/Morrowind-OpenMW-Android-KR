@@ -1,0 +1,69 @@
+name: Verify Android KR9 APK staging and signature gate
+on:
+  push:
+    branches:
+      - feature/kr9-korean-topic-boundaries
+    paths:
+      - ci/prepare_kr9_apk.py
+      - .github/workflows/verify-kr9-android-apk-staging.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  staging-guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_TAG: android-korean-0.51.0-12-kr8
+      SOURCE_APK: OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download actual released KR8 APK and hash
+        run: |
+          set -euo pipefail
+          mkdir -p input staged
+          gh release download "$SOURCE_TAG" --pattern "$SOURCE_APK" --pattern "$SOURCE_APK.sha256" --dir input
+          (cd input && sha256sum --check "$SOURCE_APK.sha256")
+      - name: Verify staging never masquerades as a signed upgrade
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/prepare_kr9_apk.py
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+          from zipfile import ZipFile
+          from ci.prepare_kr9_apk import prepare, LIBRARY
+          apk=Path('input/OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk')
+          correct=hashlib.sha256(apk.read_bytes()).hexdigest()
+          with ZipFile(apk) as z:
+              native=z.read(LIBRARY)
+          nativefile=Path('staged/new-libopenmw.so')
+          nativefile.write_bytes(native)
+          dest=Path('staged/identical.zip')
+          try:
+              prepare(apk,nativefile,dest,correct)
+          except ValueError as exc:
+              assert 'Unchanged' in str(exc),str(exc)
+          else:
+              raise AssertionError('unchanged runtime accepted as KR9')
+
+          modified=bytearray(native)
+          modified[-1] ^= 1
+          nativefile.write_bytes(modified)
+          report=prepare(apk,nativefile,Path('staged/UNSIGNED-staging-only.apk'),correct)
+          assert report['changed_entries']==[LIBRARY]
+          assert report['new_library_sha256']!=report['old_library_sha256']
+          # Deliberately syntactically valid native ELF but *not* a real candidate;
+          # it exercises packaging and must never be published.
+          print('KR9_STAGE_GUARD=PASS')
+          print('Original SHA256=',correct)
+          print('CAUTION: staging artifact from this job contains corrupted test ELF; do not distribute.')
+          PY
+          # Original signature is invalid after *any* byte change to a v2 APK.
+          if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify staged/UNSIGNED-staging-only.apk; then
+            echo '::error::Modified APK unexpectedly passes signature validation'
+            exit 1
+          fi
+          echo 'Original KR8 signing certificate cannot be preserved by simple ZIP replacement.'
