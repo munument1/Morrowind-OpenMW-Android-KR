@@ -161,7 +161,10 @@ if grep -Fiq 'Signer #1 certificate SHA-256 digest: 5eea68aceb434506b04f56353246
   echo 'Unexpected reuse of lost KR8 certificate: cannot classify as fresh-install identity' >&2
   exit 1
 fi
-sha256sum "$OUT" | tee "$OUT.sha256"
+# Write a checksum using a path relative to release-artifacts, so that
+# both local verification and release downloads can verify it reliably.
+( cd "$OUTDIR" && sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256" )
+sha256sum "$OUT"
 cp "$NATIVE_INPUT/korean-origin.txt" "$OUTDIR/korean-origin.txt"
 cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.txt"
 
