@@ -23,8 +23,15 @@ def prepare(source: Path, binary: Path, output: Path, expected_sha: str):
     if digest(source.read_bytes()) != expected_sha.lower():
         raise ValueError('Source APK checksum does not match the KR8 release')
     new_lib = binary.read_bytes()
-    if len(new_lib) < 1024 * 1024 or not new_lib.startswith(b'\x7fELF'):
-        raise ValueError('Not a native Android ELF library')
+    # Android KR8 ships 64-bit ARM. Reject accidental x86, 32-bit or
+    # non-shared-object binaries even when they start with the ELF magic.
+    def is_arm64_shared_object(payload: bytes) -> bool:
+        return (len(payload) >= 64 and payload[:6] == b'\x7fELF\x02\x01'
+                and int.from_bytes(payload[16:18], 'little') == 3  # ET_DYN
+                and int.from_bytes(payload[18:20], 'little') == 183)  # EM_AARCH64
+
+    if len(new_lib) < 1024 * 1024 or not is_arm64_shared_object(new_lib):
+        raise ValueError('Expected a substantial ARM64 ELF shared object')
     with ZipFile(source) as original:
         names = original.namelist()
         if names.count(LIBRARY) != 1 or len(names) != len(set(names)):
@@ -32,6 +39,8 @@ def prepare(source: Path, binary: Path, output: Path, expected_sha: str):
         if original.testzip() is not None:
             raise ValueError('Corrupt source APK')
         old_lib = original.read(LIBRARY)
+        if not is_arm64_shared_object(old_lib):
+            raise ValueError('Published KR8 APK native library is not ARM64 ET_DYN')
         if old_lib == new_lib:
             raise ValueError('Unchanged libopenmw.so is not a KR9 runtime upgrade')
         with ZipFile(output, 'w') as prepared:
@@ -40,7 +49,8 @@ def prepare(source: Path, binary: Path, output: Path, expected_sha: str):
                 prepared.writestr(entry, new_lib if entry.filename == LIBRARY
                                   else original.read(entry))
     with ZipFile(source) as original, ZipFile(output) as prepared:
-        assert original.namelist() == prepared.namelist()
+        if original.namelist() != prepared.namelist():
+            raise ValueError('Unexpected APK member list or ordering')
         if prepared.testzip() is not None:
             raise ValueError('Corrupt prepared APK ZIP')
         modified = [n for n in original.namelist()
