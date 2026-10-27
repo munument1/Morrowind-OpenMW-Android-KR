@@ -187,3 +187,39 @@ jobs:
             "dist/$KR9_DATA" "dist/$KR9_DATA.sha256" \
             --title 'OpenMW Android 0.51.0-12 Korean KR9 — dialogue and journal hyperlink fix' \
             --notes-file dist/notes.md --target "$GITHUB_SHA" --latest
+
+      - name: Update Android README only after KR9 assets are published
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$KR9_TAG" --json assets --jq '.assets[].name' \
+            | grep -Fxq "$KR9_APK"
+          gh release view "$KR9_TAG" --json assets --jq '.assets[].name' \
+            | grep -Fxq "$KR9_DATA"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('README.md')
+          text=p.read_text(encoding='utf-8')
+          old='현재 공개된 최신 한국어 배포판은 **OpenMW Android 0.51.0-12 Korean KR8**입니다.'
+          new='현재 공개된 최신 한국어 배포판은 **OpenMW Android 0.51.0-12 Korean KR9**입니다.'
+          if old not in text and new not in text:
+              raise SystemExit('Unexpected Android README version section')
+          text=text.replace(old,new)
+          text=text.replace('android-korean-0.51.0-12-kr8','android-korean-0.51.0-12-kr9')
+          text=text.replace('OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk','OpenMW-Android-0.51.0-12-Korean-KR9-16K.apk')
+          text=text.replace('OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip','OpenMW-Android-0.51.0-12-Korean-Data-KR9.zip')
+          # Preserve historical information elsewhere; replace only outdated
+          # current-release description.
+          for line in text.splitlines():
+              if line.startswith('KR8은 KR7 대비 한국어 데이터의'):
+                  text=text.replace(line,'KR9는 KR8 한국어 번역 데이터를 그대로 유지하면서 NPC 대화·저널 자동 링크 오인식을 수정한 엔진 업데이트입니다. KR8과 동일한 APK 서명 인증서로 검증했습니다.')
+          p.write_text(text,encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --quiet -- README.md; then
+            git add README.md
+            git commit -m 'docs: point Android README to published KR9 release'
+            git push origin HEAD:main
+          fi
