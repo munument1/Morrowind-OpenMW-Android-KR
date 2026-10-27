@@ -121,13 +121,13 @@ done
 "$AAPT" dump badging "$APK" > /tmp/badging.txt
 grep -F "versionCode='5112'" /tmp/badging.txt
 grep -F "versionName='0.51.0-12'" /tmp/badging.txt
-grep -Fq "name='com.ast.openmw.kr9'" /tmp/badging.txt
+grep -Fq "name='com.ast.openmw.korean'" /tmp/badging.txt
 if grep -Fq "name='com.ast.openmw'" /tmp/badging.txt; then
   echo 'Original KR8 package identity was not isolated!' >&2
   exit 1
 fi
-grep -Fq 'applicationId "com.ast.openmw.kr9"' source/app/build.gradle
-grep -Fq 'packageName == "com.ast.openmw.kr9"' source/app/src/main/java/utils/MyApp.kt
+grep -Fq 'applicationId "com.ast.openmw.korean"' source/app/build.gradle
+grep -Fq 'packageName == "com.ast.openmw.korean"' source/app/src/main/java/utils/MyApp.kt
 
 unzip -p "$APK" assets/libopenmw/openmw/openmw.base.cfg > /tmp/openmw.base.cfg
 grep -Fx 'fallback=Fonts_Font_0,MysticCards' /tmp/openmw.base.cfg
@@ -172,7 +172,7 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   echo 'OpenMW Android 0.51.0-11 Korean KR1 test verification'
   echo 'result=PASS'
   echo 'runtime_patches=0001-0008'
-  echo 'standalone_application_id=com.ast.openmw.kr9'
+  echo 'standalone_application_id=com.ast.openmw.korean'
   echo 'original_application_id=com.ast.openmw'
   echo 'legacy_shared_storage_migration=disabled_for_standalone'
   echo 'signing=ephemeral_debug_certificate (not reusable for future upgrades)'
