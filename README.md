@@ -24,13 +24,17 @@
 
 ## 🇰🇷 한국어 지원판 추가 사항
 
-현재 공개된 최신 한국어 배포판은 **OpenMW Android 0.51.0-12 Korean KR8**입니다.
+현재 공개된 최신 한국어 엔진 배포판은 **OpenMW Android 0.51.0-12 Korean KR9 (별도 설치판)**입니다.
 
-- [KR8 릴리스 페이지](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr8)
-- APK: `OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk`
-- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR8.zip`
+- [Android KR9 릴리스 페이지](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr9-standalone)
+- APK: `OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk`
+- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR9.zip` (KR8 데이터와 파일 내용 동일)
 
-KR8은 KR7 대비 한국어 데이터의 `Morrowind_Korean_ReTranslation.cel`에 있는 *Area Effect Arrows* 실내 명칭을 수정한 버전입니다. **KR8 APK는 KR7 APK와 바이트 단위로 동일**하므로 KR7 사용자는 데이터 ZIP만 교체하면 됩니다.
+**중요:** KR9의 앱 식별자는 `com.ast.openmw.kr9`, 기존 KR8의 앱 식별자는 `com.ast.openmw`입니다. **KR8을 삭제하거나 덮어쓰지 말고 KR9를 새로 설치**하세요. 각각의 설정과 세이브 저장 위치는 별도입니다. 새 앱의 게임 데이터 디렉터리를 다시 선택하고, 세이브를 옮길 때는 반드시 백업부터 하세요.
+
+이번 APK는 복구할 수 없는 KR8 서명 키 대신 **새로운 임시 디버그 키**로 서명했습니다. 이 키는 유지·보관되지 않았으므로 향후 KR9 앱에 대한 *설치된 상태 그대로의 APK 업데이트는 보장되지 않습니다*. 새 버전으로 옮기기 전에는 반드시 저장 데이터를 백업하세요.
+
+기존 KR8 사용자는 [KR8 배포판](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr8)을 계속 사용할 수 있습니다. KR9는 번역 데이터는 유지하면서 **대화·저널의 한국어 단어 내부에 잘못 생성되는 파란색 하이퍼링크**를 엔진에서 수정했습니다.
 
 - 한국어/CJK 대화 토픽 검색 보정
 - UTF-8 BOM 기반 `.cel` / `.top` / `.mrk` 사이드카 지원
