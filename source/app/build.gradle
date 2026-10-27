@@ -754,7 +754,7 @@ android {
         // KR9 standalone has a deliberately distinct app identity. This prevents
         // the lost KR8 debug-signing key from blocking installation and keeps
         // /Android/data/com.ast.openmw/ (including existing KR8 saves) untouched.
-        applicationId "com.ast.openmw.kr9"
+        applicationId "com.ast.openmw.korean"
 
         versionCode openMwVersionCode
         versionName calculateVersion()
