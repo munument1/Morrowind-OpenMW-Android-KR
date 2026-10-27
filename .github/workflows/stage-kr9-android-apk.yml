@@ -105,6 +105,46 @@ jobs:
           echo 'UNSIGNED_APK_IS_NOT_FOR_DISTRIBUTION=TRUE' >> reports/release-gate.txt
           echo 'VALIDATED_NATIVE_SHA256=cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9' >> reports/release-gate.txt
 
+      - name: Smoke-test Android APK re-signing with disposable key (never publish)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          original=Path('stage/KR9-UNSIGNED-ALIGNED-NOT-INSTALLABLE.apk')
+          output=Path('stage/QA-only-clean.apk')
+          def obsolete_signature(name):
+              n=name.upper()
+              if not n.startswith('META-INF/'): return False
+              b=n.rsplit('/',1)[-1]
+              return b=='MANIFEST.MF' or b.endswith(('.SF','.RSA','.DSA','.EC'))
+          with ZipFile(original) as a, ZipFile(output,'w') as b:
+              for item in a.infolist():
+                  if not obsolete_signature(item.filename):
+                      b.writestr(item,a.read(item))
+          PY
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f 4 \
+            stage/QA-only-clean.apk stage/QA-only-aligned.apk
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/qa-only.jks" \
+            -alias kr9-qa -keyalg RSA -keysize 2048 -validity 1 \
+            -dname 'CN=KR9 QA ephemeral, O=Not for release' \
+            -storepass 'QA-secret-only-pass' -keypass 'QA-secret-only-pass'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/qa-only.jks" --ks-key-alias kr9-qa \
+            --ks-pass pass:QA-secret-only-pass --key-pass pass:QA-secret-only-pass \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk stage/QA-only-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
+            stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk > reports/ephemeral-signing-qa.txt
+          if grep -Fiq 'Signer #1 certificate SHA-256 digest: 5eea68aceb434506b04f563532460c83330145f3d4ca77ad6ef41792d05985f8' reports/ephemeral-signing-qa.txt; then
+            echo '::error::Test key unexpectedly matches KR8 signer'
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 \
+            stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk
+          echo 'RE_SIGNING_PIPELINE_QA=PASS (ephemeral new cert, NOT upgrade compatible)' | tee reports/re-signing-smoke.txt
+          echo 'NO TEST SIGNING KEY OR TEST APK IS STORED IN ARTIFACTS'
+
       - name: Upload compatibility and staging evidence (no APK)
         if: always()
         uses: actions/upload-artifact@v4
