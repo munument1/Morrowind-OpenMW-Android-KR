@@ -751,10 +751,10 @@ android {
     }
 
     defaultConfig {
-        // Both flavors intentionally use the same installed package name. Google Play
-        // can therefore serve the appropriate artifact per form factor while the
-        // shared OpenMW user-data path remains stable.
-        applicationId "com.ast.openmw"
+        // KR9 standalone has a deliberately distinct app identity. This prevents
+        // the lost KR8 debug-signing key from blocking installation and keeps
+        // /Android/data/com.ast.openmw/ (including existing KR8 saves) untouched.
+        applicationId "com.ast.openmw.kr9"
 
         versionCode openMwVersionCode
         versionName calculateVersion()
@@ -789,8 +789,8 @@ android {
         }
 
         debug {
-            // Deliberately no applicationIdSuffix. Debug and release both use
-            // com.ast.openmw, so Android gives both the same app-specific data path.
+            // Standalone KR9 has its own applicationId; debug/release remain identical
+            // within this separately installed application.
             debuggable true
         }
     }
