@@ -1,0 +1,64 @@
+name: Validate Android KR9 permanent app source and ABI
+
+on:
+  push:
+    branches: [release/android-05112-kr9-permanent-signing]
+    paths:
+      - '.github/workflows/validate-kr9-permanent-source.yml'
+      - 'source/app/build.gradle'
+      - 'source/app/src/main/java/utils/MyApp.kt'
+      - 'source/app/src/main/res/values/strings.xml'
+      - 'source/app/src/main/res/values-ko/strings.xml'
+      - 'ci/package-android-kr9-standalone.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android tools and download pinned Korean native binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+          mkdir -p native-artifacts/libs
+          gh run download 40514491647 --name Android-KR9-native-candidate-16K --dir native-artifacts
+          echo 'cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9  native-artifacts/libopenmw.so' | sha256sum --check
+          grep -Fx 'korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4' native-artifacts/korean-origin.txt
+      - name: Build full Android KR9 permanent app candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-android-kr9-standalone.sh
+          NATIVE_INPUT=native-artifacts ci/package-android-kr9-standalone.sh
+          grep -Fx 'result=PASS' release-artifacts/16k-verification.txt
+          grep -Fx 'standalone_application_id=com.ast.openmw.korean' release-artifacts/16k-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk \
+            | head -n 1 | grep -F "name='com.ast.openmw.korean'"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk
+      - name: Retain only verification reports, not temporary-debug-signed APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR9-Permanent-Source-Verification
+          path: |
+            release-artifacts/16k-verification.txt
+            release-artifacts/*page-size-report.txt
+            release-artifacts/kr9-signer.txt
+          retention-days: 14
+          if-no-files-found: warn
