@@ -25,7 +25,7 @@ EXPECTED_KR_SHA="$(awk 'NR==1 {print $1}' "$NATIVE_INPUT/libopenmw.so.sha256")"
 ACTUAL_KR_SHA="$(sha256sum "$NATIVE_INPUT/libs/libopenmw.so" | awk '{print $1}')"
 test "$EXPECTED_KR_SHA" = "$ACTUAL_KR_SHA"
 test "$ACTUAL_KR_SHA" != 'cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9'
-grep -Fxq 'voice_subtitle_sync=4493b9c9804ab58e74f0122b091a243c88b5e6c2' "$NATIVE_INPUT/korean-origin.txt"
+grep -Fxq 'voice_subtitle_sync=9ccc477acf8488bf3b93e5b64b897ddb8a7f52af' "$NATIVE_INPUT/korean-origin.txt"
 
 grep -Fxq 'topic_link_fix=1f40a0952d193b4ba68cb4f6ffa08091233353f8' "$NATIVE_INPUT/korean-origin.txt"
 

@@ -64,8 +64,8 @@ gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0011-korean-topic-discov
 test "$(git hash-object "$DEST/0011-korean-topic-discovery-and-work-links.patch")" = "$KR12_TOPIC_LINK_BLOB"
 
 
-KR12_SUBTITLE_COMMIT='167f01e835db78a66dcffdf69a3826ad36c67516'
-KR12_SUBTITLE_BLOB='4493b9c9804ab58e74f0122b091a243c88b5e6c2'
+KR12_SUBTITLE_COMMIT='3d974fcdb473b248cf729a5b8bd873797e9bd18e'
+KR12_SUBTITLE_BLOB='9ccc477acf8488bf3b93e5b64b897ddb8a7f52af'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0012-voice-synchronized-subtitles.patch?ref=$KR12_SUBTITLE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0012-voice-synchronized-subtitles.patch"
 test "$(git hash-object "$DEST/0012-voice-synchronized-subtitles.patch")" = "$KR12_SUBTITLE_BLOB"
 
