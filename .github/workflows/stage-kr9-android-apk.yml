@@ -1,0 +1,157 @@
+name: Stage Android KR9 APK and verify native compatibility
+on:
+  push:
+    branches: [feature/kr9-korean-topic-boundaries]
+    paths:
+      - '.github/workflows/stage-kr9-android-apk.yml'
+      - 'ci/prepare_kr9_apk.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      KR8_APK: OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk
+      KR11_APK: OpenMW-Android-0.51.0-11-Korean-KR1.2-16K.apk
+      NATIVE_RUN: '40514491647'
+      EXPECTED_KR9_NATIVE_SHA256: cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Obtain authentic Android KR8 and earlier KR1.2 binaries
+        run: |
+          set -euo pipefail
+          mkdir -p input/kr8 input/kr11 native stage reports
+          gh release download android-korean-0.51.0-12-kr8 \
+            --pattern "$KR8_APK" --pattern "$KR8_APK.sha256" --dir input/kr8
+          gh release download android-korean-0.51.0-11-kr1.2 \
+            --pattern "$KR11_APK" --pattern "$KR11_APK.sha256" --dir input/kr11
+          for path in input/kr8 input/kr11; do
+            (cd "$path" && sed 's|release-artifacts/||g' *.sha256 | sha256sum --check)
+          done
+          unzip -p "input/kr8/$KR8_APK" lib/arm64-v8a/libopenmw.so > reports/libopenmw-kr8.so
+          unzip -p "input/kr11/$KR11_APK" lib/arm64-v8a/libopenmw.so > reports/libopenmw-kr11.so
+          (cd reports && sha256sum *.so | tee original-library-hashes.txt)
+          gh run download "$NATIVE_RUN" --name Android-KR9-native-candidate-16K --dir native
+          echo "$EXPECTED_KR9_NATIVE_SHA256  native/libopenmw.so" | sha256sum --check
+          # Original artifact checksum embeds "native-artifacts/" from the
+          # producing job; the downloaded artifact is flattened under native/.
+          test "$(awk 'NR==1{print $1}' native/libopenmw.so.sha256)" = "$EXPECTED_KR9_NATIVE_SHA256"
+          test -s native/korean-origin.txt
+          grep -Fx 'korean_topic_boundaries=3a2498b52b6ca7358a92ef9a846f462867a323e4' native/korean-origin.txt
+          grep -Fx 'required_min_load_align=0x4000' native/page-size-report.txt
+
+      - name: Compare ABI assumptions and verify signed KR8 APK identity
+        run: |
+          set -euo pipefail
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --print-certs "input/kr8/$KR8_APK" > reports/kr8-signature.txt
+          "$AAPT" dump badging "input/kr8/$KR8_APK" | head -n 16 > reports/kr8-badging.txt
+          grep -F "versionCode='5112'" reports/kr8-badging.txt
+          grep -F "versionName='0.51.0-12'" reports/kr8-badging.txt
+          grep -F 'Signer #1 certificate SHA-256 digest: 5eea68aceb434506b04f563532460c83330145f3d4ca77ad6ef41792d05985f8' reports/kr8-signature.txt
+
+          for name in kr8 kr11 kr9; do
+            case "$name" in
+              kr8) lib=reports/libopenmw-kr8.so;;
+              kr11) lib=reports/libopenmw-kr11.so;;
+              kr9) lib=native/libopenmw.so;;
+            esac
+            readelf -h "$lib" | grep -E 'Class:|Machine:|Type:'
+            readelf -h "$lib" | grep -Eq 'Machine:.*AArch64'
+            readelf -dW "$lib" | grep '(NEEDED)' | sed -E 's/.*Shared library: \[([^]]+)\].*/\1/' | sort > "reports/$name-needed.txt"
+            readelf -Ws "$lib" | awk '$4=="FUNC" && $7!="UND" && $8 ~ /^Java_/ {print $8}' | sort -u > "reports/$name-jni.txt"
+          done
+          diff -u reports/kr8-needed.txt reports/kr9-needed.txt | tee reports/needed-diff.txt
+          diff -u reports/kr8-jni.txt reports/kr9-jni.txt | tee reports/jni-diff.txt
+          # Record whether 0.51.0-12 shipped the same native binary as the
+          # 0.51.0-11 Korean baseline; differing hashes require additional care.
+          if cmp -s reports/libopenmw-kr8.so reports/libopenmw-kr11.so; then
+            echo 'KR8_NATIVE_SAME_AS_KR11=YES' | tee reports/native-base-compatibility.txt
+          else
+            echo 'KR8_NATIVE_SAME_AS_KR11=NO' | tee reports/native-base-compatibility.txt
+          fi
+
+      - name: Make unsigned KR9-only staging ZIP; do not publish as an APK
+        run: |
+          set -euo pipefail
+          expected="$(awk 'NR==1{print $1}' "input/kr8/$KR8_APK.sha256")"
+          python3 ci/prepare_kr9_apk.py \
+            --source "input/kr8/$KR8_APK" \
+            --library native/libopenmw.so \
+            --output stage/OpenMW-Android-0.51.0-12-Korean-KR9-UNSIGNED-NOT-INSTALLABLE.apk \
+            --expected-source-sha256 "$expected" \
+            | tee reports/staging-verification.json
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$ZIPALIGN" -P 16 -f 4 \
+            stage/OpenMW-Android-0.51.0-12-Korean-KR9-UNSIGNED-NOT-INSTALLABLE.apk \
+            stage/KR9-UNSIGNED-ALIGNED-NOT-INSTALLABLE.apk
+          "$ZIPALIGN" -c -P 16 4 stage/KR9-UNSIGNED-ALIGNED-NOT-INSTALLABLE.apk
+          if "$APKSIGNER" verify stage/KR9-UNSIGNED-ALIGNED-NOT-INSTALLABLE.apk; then
+            echo '::error::Mutated APK unexpectedly retained valid signature'
+            exit 1
+          fi
+          # Prevent accidental distribution of the not-installable staging APK.
+          echo 'KR9_ANDROID_RELEASE_BLOCKED=ORIGINAL_SIGNING_KEY_REQUIRED' | tee reports/release-gate.txt
+          echo 'UNSIGNED_APK_IS_NOT_FOR_DISTRIBUTION=TRUE' >> reports/release-gate.txt
+          echo 'VALIDATED_NATIVE_SHA256=cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d96f2dc8af9' >> reports/release-gate.txt
+
+      - name: Smoke-test Android APK re-signing with disposable key (never publish)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          original=Path('stage/KR9-UNSIGNED-ALIGNED-NOT-INSTALLABLE.apk')
+          output=Path('stage/QA-only-clean.apk')
+          def obsolete_signature(name):
+              n=name.upper()
+              if not n.startswith('META-INF/'): return False
+              b=n.rsplit('/',1)[-1]
+              return b=='MANIFEST.MF' or b.endswith(('.SF','.RSA','.DSA','.EC'))
+          with ZipFile(original) as a, ZipFile(output,'w') as b:
+              for item in a.infolist():
+                  if not obsolete_signature(item.filename):
+                      b.writestr(item,a.read(item))
+          PY
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -P 16 -f 4 \
+            stage/QA-only-clean.apk stage/QA-only-aligned.apk
+          keytool -genkeypair -noprompt -keystore "$RUNNER_TEMP/qa-only.jks" \
+            -alias kr9-qa -keyalg RSA -keysize 2048 -validity 1 \
+            -dname 'CN=KR9 QA ephemeral, O=Not for release' \
+            -storepass 'QA-secret-only-pass' -keypass 'QA-secret-only-pass'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/qa-only.jks" --ks-key-alias kr9-qa \
+            --ks-pass pass:QA-secret-only-pass --key-pass pass:QA-secret-only-pass \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk stage/QA-only-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs \
+            stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk > reports/ephemeral-signing-qa.txt
+          if grep -Fiq 'Signer #1 certificate SHA-256 digest: 5eea68aceb434506b04f563532460c83330145f3d4ca77ad6ef41792d05985f8' reports/ephemeral-signing-qa.txt; then
+            echo '::error::Test key unexpectedly matches KR8 signer'
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 \
+            stage/QA-only-signed-DO-NOT-DISTRIBUTE.apk
+          echo 'RE_SIGNING_PIPELINE_QA=PASS (ephemeral new cert, NOT upgrade compatible)' | tee reports/re-signing-smoke.txt
+          echo 'NO TEST SIGNING KEY OR TEST APK IS STORED IN ARTIFACTS'
+
+      - name: Upload compatibility and staging evidence (no APK)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR9-APK-native-compatibility-and-signature-report
+          path: |
+            reports/*.txt
+            reports/*.json
+          if-no-files-found: warn
+          retention-days: 30

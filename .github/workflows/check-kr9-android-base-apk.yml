@@ -1,0 +1,47 @@
+name: Inspect Android KR8 APK for KR9 binary update
+on:
+  push:
+    branches: [feature/kr9-korean-topic-boundaries]
+    paths: [.github/workflows/check-kr9-android-base-apk.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      APK: OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk
+      TAG: android-korean-0.51.0-12-kr8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get source APK and expected hash
+        run: |
+          set -euo pipefail
+          mkdir -p apk
+          gh release download "$TAG" --pattern "$APK" --pattern "$APK.sha256" --dir apk
+          (cd apk && sha256sum --check "$APK.sha256")
+          unzip -tq "apk/$APK"
+      - name: Record existing application identity and signer
+        run: |
+          set -euo pipefail
+          sdk="$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$sdk/apksigner"
+          test -x "$sdk/aapt"
+          "$sdk/apksigner" verify --verbose --print-certs "apk/$APK" | tee kr8-apk-signature.txt
+          "$sdk/aapt" dump badging "apk/$APK" | head -n 16 | tee kr8-apk-package.txt
+          unzip -p "apk/$APK" lib/arm64-v8a/libopenmw.so | sha256sum | tee kr8-native-sha256.txt
+          echo 'A release APK rebuilt with a different signing cert is NOT installable as an upgrade.'
+      - name: Store inspection report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR8-APK-base-signing-and-version
+          path: |
+            kr8-apk-signature.txt
+            kr8-apk-package.txt
+            kr8-native-sha256.txt
+          retention-days: 30
