@@ -1,0 +1,114 @@
+name: Build Android 0.51.0-12 Korean APK candidate
+on:
+  push:
+    branches:
+      - feature/android-05112-kr6-sync
+    paths:
+      - .github/workflows/build-android-05112-kr6.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      JOBS: '4'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android native toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git curl wget patch unzip zip python3 perl autoconf automake libtool libtool-bin pkg-config bison flex gettext gperf nasm yasm texinfo bzip2 xz-utils
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          echo "$(dirname "$SDKMANAGER")" >> "$GITHUB_PATH"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            source/buildscripts/downloads
+            source/buildscripts/prefix/arm64
+            source/buildscripts/build/arm64
+            !source/buildscripts/build/arm64/openmw-prefix
+          key: ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-${{ hashFiles('source/buildscripts/CMakeLists.txt', 'source/buildscripts/include/version.sh', 'ci/build-korean-native-kr1.sh', 'ci/patch-sdl2-ndk-r27.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-
+      - name: Build Korean native engine with 16K alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ci/patch-sdl2-ndk-r27.sh ci/build-korean-native-kr1.sh
+          ./ci/patch-sdl2-ndk-r27.sh
+          ./ci/build-korean-native-kr1.sh
+      - name: Preserve verified native runtime
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-Korean-Native-16K
+          path: |
+            native-artifacts/libs/*.so
+            native-artifacts/libopenmw.so.sha256
+            native-artifacts/page-size-report.txt
+            native-artifacts/korean-origin.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Assemble 0.51.0-12 APK and validate
+        shell: bash
+        env:
+          NATIVE_INPUT: native-artifacts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('ci/package-korean-native-kr1.sh')
+          s = p.read_text()
+          changes = {
+              "UPSTREAM_TAG='0.51.0-11'": "UPSTREAM_TAG='0.51.0-12'",
+              "UPSTREAM_APK='OpenMW.0.51-11.apk'": "UPSTREAM_APK='OpenMW.0.51-12.apk'",
+              "UPSTREAM_APK_SHA256='c0ea41c9f862d95c10796909d3b0edef6f401d5ac92ce9dd3bf92f967f32ee07'": "UPSTREAM_APK_SHA256='87fb0da774ba93f634f707b1fda9fb043bbca528b98a0cb0d5720a5073bb3a07'",
+              "versionCode='5111'": "versionCode='5112'",
+              "versionName='0.51.0-11'": "versionName='0.51.0-12'",
+              "OpenMW-Android-0.51.0-11-Korean-KR1-Test-16K.apk": "OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk",
+          }
+          for old, new in changes.items():
+              if old not in s:
+                  raise SystemExit(f"Missing expected build anchor: {old}")
+              s = s.replace(old, new)
+          Path('ci/package-android-05112-candidate.sh').write_text(s)
+          PY
+          chmod +x ci/package-android-05112-candidate.sh
+          ./ci/package-android-05112-candidate.sh
+      - name: Upload candidate APK and verification
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-Korean-APK-Candidate-16K
+          path: |
+            release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk
+            release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR6-Candidate-16K.apk.sha256
+            release-artifacts/16k-verification.txt
+            release-artifacts/*page-size-report.txt
+            release-artifacts/korean-origin.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-Korean-Build-Diagnostics
+          path: |
+            native-artifacts/korean-native-build.log
+            native-artifacts/page-size-report.txt
+            native-artifacts/korean-origin.txt
+          if-no-files-found: warn
+          retention-days: 7

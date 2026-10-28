@@ -24,17 +24,25 @@
 
 ## 🇰🇷 한국어 지원판 추가 사항
 
-현재 공개된 최신 한국어 엔진 배포판은 **OpenMW Android 0.51.0-12 Korean KR9 (별도 설치판)**입니다.
+최신 한국어 지원판은 **OpenMW Android 0.51.0-12 Korean KR12**입니다.
 
-- [Android KR9 릴리스 페이지](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr9-standalone)
-- APK: `OpenMW-Android-0.51.0-12-Korean-KR9-Standalone-16K.apk`
-- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR9.zip` (KR8 데이터와 파일 내용 동일)
+- [Android KR12 릴리스 및 SHA-256](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12-permanent)
+- APK: `OpenMW-Android-0.51.0-12-Korean-KR12-Permanent-16K.apk`
+- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip`
 
-**중요:** KR9의 앱 식별자는 `com.ast.openmw.kr9`, 기존 KR8의 앱 식별자는 `com.ast.openmw`입니다. **KR8을 삭제하거나 덮어쓰지 말고 KR9를 새로 설치**하세요. 각각의 설정과 세이브 저장 위치는 별도입니다. 새 앱의 게임 데이터 디렉터리를 다시 선택하고, 세이브를 옮길 때는 반드시 백업부터 하세요.
+KR12는 잘못된 대화·저널 하이퍼링크를 수정하고, Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 검토한 오연결과 이름 분절을 INFO 본문 468곳에서 고치고, 업무 의뢰 진입 링크를 보강합니다. 깨진 토지 증서 선택지 스크립트 1곳도 복구합니다. **로마 숫자 U+2160–U+217F** 범위와 원래 데이드릭 문자를 유지하며, TTF·자막·BOOK 데이터는 그대로입니다. **새 APK와 KR12 데이터 ZIP을 함께 적용**하세요.
 
-이번 APK는 복구할 수 없는 KR8 서명 키 대신 **새로운 임시 디버그 키**로 서명했습니다. 이 키는 유지·보관되지 않았으므로 향후 KR9 앱에 대한 *설치된 상태 그대로의 APK 업데이트는 보장되지 않습니다*. 새 버전으로 옮기기 전에는 반드시 저장 데이터를 백업하세요.
+앱 식별자는 `com.ast.openmw.korean`, versionCode는 `5114`입니다. 기존 KR8 (`com.ast.openmw`) 및 초기 KR9 (`com.ast.openmw.kr9`)와 별도로 설치됩니다. 기존 앱을 삭제하거나 덮어쓰지 않습니다. 새 앱에서 게임 데이터 경로를 선택하고, 세이브를 옮기기 전에 백업하세요. 공유 저장소에서 세이브를 자동으로 가져오는 기능은 비활성화되어 있습니다.
 
-기존 KR8 사용자는 [KR8 배포판](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr8)을 계속 사용할 수 있습니다. KR9는 번역 데이터는 유지하면서 **대화·저널의 한국어 단어 내부에 잘못 생성되는 파란색 하이퍼링크**를 엔진에서 수정했습니다.
+APK는 **영구 보관한 키로 서명한 릴리스 빌드**이며 디버그 모드를 사용하지 않습니다. 향후 이 앱의 업데이트에는 같은 앱 식별자와 서명 키를 유지합니다. 인증서 SHA-256은 다음과 같습니다.
+
+`ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2`
+
+이전 KR9는 임시 키를 사용한 별도 설치판이었으므로 KR12이 그 앱을 직접 업데이트하지 않습니다. [KR9 릴리스](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr9-standalone)는 보존합니다.
+
+검증은 전체 네이티브 빌드, 패치 적용 소스에 대한 토픽·저널 C++ 회귀 검사, 런처 Gradle 검사, 서명·앱 식별자·버전·16 KiB ELF/ZIP 정렬 검사를 포함합니다. Windows에서는 같은 폰트 수정의 로마 숫자·한글 렌더링을 실제 확인했습니다. **Android 기기 전체 플레이 검증은 별도 진행이 필요합니다.** Rebirth ESP는 이 배포에 포함하지 않습니다.
+
+기존 KR8 사용자는 [KR8 배포판](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr8)을 계속 사용할 수 있습니다. KR9부터 번역 데이터는 유지하면서 **대화·저널의 한국어 단어 내부에 잘못 생성되는 파란색 하이퍼링크**를 엔진에서 수정했습니다.
 
 - 한국어/CJK 대화 토픽 검색 보정
 - UTF-8 BOM 기반 `.cel` / `.top` / `.mrk` 사이드카 지원

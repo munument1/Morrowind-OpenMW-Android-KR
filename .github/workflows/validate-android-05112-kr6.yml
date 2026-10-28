@@ -1,0 +1,42 @@
+name: Validate Android 0.51.0-12 KR6 data candidate
+on:
+  push:
+    branches:
+      - feature/android-05112-kr6-sync
+    paths:
+      - ci/package-korean-data.sh
+      - .github/workflows/validate-android-05112-kr6.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  korean-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify pinned PC KR6 payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-korean-data.sh
+          gh release download openmw-0.51.0-kr6 --repo munument1/-KR-openmw --pattern 'Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip' --dir /tmp
+          unzip -Z1 /tmp/Morrowind-Korean-OpenMW-0.51.0-KR6-Full.zip | head -n 100
+          ./ci/package-korean-data.sh
+          grep -Fx 'source_tag=openmw-0.51.0-kr6' release-artifacts/korean-data-verification.txt
+          grep -Fx 'result=PASS' release-artifacts/korean-data-verification.txt
+          unzip -tq release-artifacts/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip
+      - name: Upload verified Korean data
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenMW-Android-0.51.0-12-Korean-Data-KR6-candidate
+          path: |
+            release-artifacts/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip
+            release-artifacts/OpenMW-Android-0.51.0-12-Korean-Data-KR6.zip.sha256
+            release-artifacts/korean-data-verification.txt
+          if-no-files-found: error
+          retention-days: 14

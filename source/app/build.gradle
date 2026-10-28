@@ -8,8 +8,8 @@ apply plugin: 'kotlin-android'
  * calibrated OMWFX chain together behind one build-time verification gate.
  */
 
-def openMwVersionCode = 5111
-def openMwAndroidVersionName = '0.51.0-11'
+def openMwVersionCode = 5114
+def openMwAndroidVersionName = '0.51.0-12-KR12'
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -146,9 +146,9 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        if (openMwVersionCode != 5111 || calculateVersion() != '0.51.0-11') {
+        if (openMwVersionCode != 5114 || calculateVersion() != '0.51.0-12-KR12') {
             throw new GradleException(
-                    'OpenMW Android final release identity must be versionName 0.51.0-11 and versionCode 5111.'
+                    'OpenMW Android final release identity must be versionName 0.51.0-12-KR12 and versionCode 5114.'
             )
         }
 
@@ -307,6 +307,22 @@ tasks.register('verifyOpenMwPayload') {
                 ? extractStringKeys(storageChooserBase.getText('UTF-8'))
                 : ([] as Set)
 
+        // Upstream 0.51.0-12 introduced storage access and migration strings.
+        // Android resource fallback supplies English for these new keys until
+        // translations are reviewed; retain strict completeness for legacy keys.
+        def newStorageGeneralKeys = requiredGeneralStringKeys.findAll { key ->
+            key.startsWith('game_files_') || key.startsWith('legacy_storage_migration_')
+        } as Set
+        def newStorageChooserKeys = [
+                'sc_sd_card',
+                'sc_volume_no_path_message',
+                'sc_volume_not_available_message',
+                'sc_volume_not_readable_message',
+                'sc_volume_problem_title',
+                'sc_volume_read_only',
+                'sc_volume_unavailable'
+        ] as Set
+
         ['de', 'fr', 'pl', 'ru', 'sv'].each { locale ->
             def localeDir = file('src/main/res/values-' + locale)
             def localeGeneralFile = new File(localeDir, 'strings.xml')
@@ -319,7 +335,7 @@ tasks.register('verifyOpenMwPayload') {
             def localeGeneralKeys = extractStringKeys(localeGeneralText)
             def localePreferenceKeys = extractStringKeys(localePreferencesFile.getText('UTF-8'))
             def localeArrayItemCounts = extractArrayItemCounts(localeGeneralText)
-            def missingGeneral = requiredGeneralStringKeys - localeGeneralKeys
+            def missingGeneral = requiredGeneralStringKeys - localeGeneralKeys - newStorageGeneralKeys
             def missingPreferences = requiredPreferenceStringKeys - localePreferenceKeys
             def invalidArrays = requiredLocalizedArrays.findAll { arrayName ->
                 !localeArrayItemCounts.containsKey(arrayName) ||
@@ -333,7 +349,7 @@ tasks.register('verifyOpenMwPayload') {
             def storageChooserLocaleKeys = storageChooserLocaleFile.isFile()
                     ? extractStringKeys(storageChooserLocaleFile.getText('UTF-8'))
                     : ([] as Set)
-            def missingStorageChooser = storageChooserKeys - storageChooserLocaleKeys
+            def missingStorageChooser = storageChooserKeys - storageChooserLocaleKeys - newStorageChooserKeys
 
             if (!missingGeneral.isEmpty() || !missingPreferences.isEmpty() ||
                     !invalidArrays.isEmpty() || !missingStorageChooser.isEmpty()) {
@@ -735,10 +751,10 @@ android {
     }
 
     defaultConfig {
-        // Both flavors intentionally use the same installed package name. Google Play
-        // can therefore serve the appropriate artifact per form factor while the
-        // shared OpenMW user-data path remains stable.
-        applicationId "com.ast.openmw"
+        // KR9 standalone has a deliberately distinct app identity. This prevents
+        // the lost KR8 debug-signing key from blocking installation and keeps
+        // /Android/data/com.ast.openmw/ (including existing KR8 saves) untouched.
+        applicationId "com.ast.openmw.korean"
 
         versionCode openMwVersionCode
         versionName calculateVersion()
@@ -773,8 +789,8 @@ android {
         }
 
         debug {
-            // Deliberately no applicationIdSuffix. Debug and release both use
-            // com.ast.openmw, so Android gives both the same app-specific data path.
+            // Standalone KR9 has its own applicationId; debug/release remain identical
+            // within this separately installed application.
             debuggable true
         }
     }
