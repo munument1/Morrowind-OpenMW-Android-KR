@@ -18,9 +18,15 @@ The encrypted private backup and its recovery key are separate GitHub Secrets;
 private material is excluded from source, Actions artifacts and release assets.
 Future updates must retain this certificate/package and increase versionCode.
 
-The KR12 data ZIP enables U+2160–U+217F Roman numerals in MysticCards. It keeps
-the released Android ESP, sidecars, TTF and subtitles unchanged. Install both
-the APK and data update; an APK-only native update does not replace data files.
+KR12 also applies the pinned Windows patch 0011 from commit
+4a8ca4a437ee6de8a99b23c51402550979c63295. It enforces Korean boundaries during
+discovery and repairs historical markup in the view without rewriting saved text.
+
+The KR12 data ZIP preserves U+2160–U+217F Roman numerals in MysticCards and repairs
+reviewed topic tags in 468 INFO texts, plus one malformed land-deed Choice script.
+The updated sidecars keep explicit work links and unambiguous work keywords.
+TTF, subtitles, BOOK records, quest stages and conditions remain unchanged.
+Install both the APK and data update; an APK-only update does not replace data.
 
 The Daedric font slot (`Fonts_Font_2`) is restored to `DemonicLetters`, preserving
 the upstream Daedric font definition, glyph font and license byte-for-byte.
