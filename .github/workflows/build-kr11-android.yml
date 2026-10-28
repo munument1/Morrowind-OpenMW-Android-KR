@@ -51,6 +51,7 @@ jobs:
             !source/buildscripts/build/arm64/openmw-prefix
           key: ${{ runner.os }}-openmw051-r27d-arm64-16k-kr12-${{ hashFiles('source/buildscripts/CMakeLists.txt', 'ci/build-korean-native-kr12.sh') }}
           restore-keys: |
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-kr12-
             ${{ runner.os }}-openmw051-r27d-arm64-16k-kr11-
             ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-
             ${{ runner.os }}-openmw051-r27d-arm64-16k-v2-
@@ -72,7 +73,7 @@ jobs:
           print('Verified full native build and C++ regressions from pinned KR12 source')
           PY
           gh run download "$NATIVE_RUN_ID" -n Android-KR12-native-build-evidence -D native-artifacts
-      - name: Compile Android engine with Korean patches 0001 through 0011
+      - name: Compile Android engine with Korean patches 0001 through 0012
         if: inputs.native_run_id == ''
         shell: bash
         run: |
@@ -81,6 +82,7 @@ jobs:
           ci/patch-sdl2-ndk-r27.sh
           ci/build-korean-native-kr12.sh
           grep -Fx 'kr10_engine=munument1/Morrowind-OpenMW-KR@22410f633d4de10aaeb8345238a15d45a7f24ca3' native-artifacts/korean-origin.txt
+          grep -Fx 'voice_subtitle_sync=4493b9c9804ab58e74f0122b091a243c88b5e6c2' native-artifacts/korean-origin.txt
           grep -Fx 'topic_link_fix=1f40a0952d193b4ba68cb4f6ffa08091233353f8' native-artifacts/korean-origin.txt
           grep -Fx 'legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c' native-artifacts/korean-origin.txt
       - name: Run real topic recovery and journal index C++ regressions on Android-patched source
@@ -90,8 +92,8 @@ jobs:
           set -euo pipefail
           src=source/buildscripts/build/arm64/openmw-prefix/src/openmw
           mkdir -p regression
-          for test in test-journal-index.cpp test-legacy-korean-name.cpp test-legacy-korean-topic.cpp test-korean-topic-markup.cpp; do
-            gh api "repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/$test?ref=4a8ca4a437ee6de8a99b23c51402550979c63295" --jq '.content' | base64 --decode > "regression/$test"
+          for test in test-journal-index.cpp test-legacy-korean-name.cpp test-legacy-korean-topic.cpp test-korean-topic-markup.cpp test-voice-subtitle-lifetime.cpp; do
+            gh api "repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/$test?ref=167f01e835db78a66dcffdf69a3826ad36c67516" --jq '.content' | base64 --decode > "regression/$test"
             g++ -std=c++20 -O2 -I"$src" "regression/$test" -o "regression/${test%.cpp}"
             "regression/${test%.cpp}"
           done
