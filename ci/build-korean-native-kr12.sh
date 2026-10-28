@@ -64,6 +64,12 @@ gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0011-korean-topic-discov
 test "$(git hash-object "$DEST/0011-korean-topic-discovery-and-work-links.patch")" = "$KR12_TOPIC_LINK_BLOB"
 
 
+KR12_SUBTITLE_COMMIT='3d974fcdb473b248cf729a5b8bd873797e9bd18e'
+KR12_SUBTITLE_BLOB='9ccc477acf8488bf3b93e5b64b897ddb8a7f52af'
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0012-voice-synchronized-subtitles.patch?ref=$KR12_SUBTITLE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0012-voice-synchronized-subtitles.patch"
+test "$(git hash-object "$DEST/0012-voice-synchronized-subtitles.patch")" = "$KR12_SUBTITLE_BLOB"
+
+
 printf '%s\n' \
   "$KOREAN_ENGINE_REPO@$KOREAN_ENGINE_COMMIT" \
   "topic=$KOREAN_TOPIC_BLOB" \
@@ -80,6 +86,8 @@ printf '%s\n' \
   "legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c" \
   "kr12_engine=$KR12_ENGINE_REPO@$KR12_ENGINE_COMMIT" \
   "topic_link_fix=$KR12_TOPIC_LINK_BLOB" \
+  "voice_subtitle_sync=$KR12_SUBTITLE_BLOB" \
+  "subtitle_engine=$KR12_ENGINE_REPO@$KR12_SUBTITLE_COMMIT" \
   "ndk=$NDK_PACKAGE" \
   "page_ldflags=$PAGE_LDFLAGS" > "$OUTDIR/korean-origin.txt"
 
@@ -106,7 +114,8 @@ replacement = '''        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/app
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0008-korean-implicit-topic-boundaries.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0009-korean-honorific-particle.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0010-legacy-korean-topic-recovery.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0011-korean-topic-discovery-and-work-links.patch
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0011-korean-topic-discovery-and-work-links.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0012-voice-synchronized-subtitles.patch
 )'''
 if 'patches/kr-origin/0001-cjk-topic-discovery.patch' not in text:
     if needle not in text:
@@ -179,6 +188,8 @@ if [[ -s "$JNI" ]]; then
   grep -Fq 'MWGui::koreanJournalInitials' "$SRC/apps/openmw/mwgui/journalwindow.cpp"
   grep -Fq 'reconcileKoreanTopicMarkup' "$SRC/apps/openmw/mwgui/journalviewmodel.cpp"
   grep -Fq 'loadSubtitles(video);' "$SRC/apps/openmw/mwgui/videowidget.cpp"
+  grep -Fq 'isSaySoundPlaying' "$SRC/apps/openmw/mwgui/messagebox.cpp"
+  grep -Fq 'voiceSubtitle(info->mResponse' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
   set +x
 fi
 
@@ -219,4 +230,4 @@ if [[ $ALIGN_FAIL -ne 0 ]]; then
   exit 1
 fi
 
-echo 'KR12 Korean native runtime built with patches 0001-0011 and 16 KiB ELF alignment.'
+echo 'KR12 Korean native runtime built with patches 0001-0012 and 16 KiB ELF alignment.'
