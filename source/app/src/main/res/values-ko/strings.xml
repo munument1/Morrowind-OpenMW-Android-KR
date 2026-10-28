@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">OpenMW 한국어 KR11 안정판</string>
+    <string name="app_name">OpenMW 한국어 KR12 안정판</string>
     <string name="general_settings">설정</string>
     <string name="start_game_label">게임 시작</string>
     <string name="closeDrawer">탐색 메뉴</string>

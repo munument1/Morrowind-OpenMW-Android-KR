@@ -24,21 +24,21 @@
 
 ## 🇰🇷 한국어 지원판 추가 사항
 
-최신 한국어 지원판은 **OpenMW Android 0.51.0-12 Korean KR11**입니다.
+최신 한국어 지원판은 **OpenMW Android 0.51.0-12 Korean KR12**입니다.
 
-- [Android KR11 릴리스 및 SHA-256](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr11-permanent)
-- APK: `OpenMW-Android-0.51.0-12-Korean-KR11-Permanent-16K.apk`
-- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR11.zip`
+- [Android KR12 릴리스 및 SHA-256](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12-permanent)
+- APK: `OpenMW-Android-0.51.0-12-Korean-KR12-Permanent-16K.apk`
+- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip`
 
-KR11은 Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 **로마 숫자 U+2160–U+217F**를 폰트 문자 범위에 추가하며, 번역 ESP·토픽 매핑·TTF·자막은 기존 내용을 유지합니다. **새 APK와 KR11 데이터 ZIP을 함께 적용**하세요.
+KR12은 잘못된 대화·저널 하이퍼링크를 추가로 수정하고, Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 **로마 숫자 U+2160–U+217F**를 폰트 문자 범위에 추가하며, 번역 ESP·토픽 매핑·TTF·자막은 기존 내용을 유지합니다. **새 APK와 KR12 데이터 ZIP을 함께 적용**하세요.
 
-앱 식별자는 `com.ast.openmw.korean`, versionCode는 `5113`입니다. 기존 KR8 (`com.ast.openmw`) 및 초기 KR9 (`com.ast.openmw.kr9`)와 별도로 설치됩니다. 기존 앱을 삭제하거나 덮어쓰지 않습니다. 새 앱에서 게임 데이터 경로를 선택하고, 세이브를 옮기기 전에 백업하세요. 공유 저장소에서 세이브를 자동으로 가져오는 기능은 비활성화되어 있습니다.
+앱 식별자는 `com.ast.openmw.korean`, versionCode는 `5114`입니다. 기존 KR8 (`com.ast.openmw`) 및 초기 KR9 (`com.ast.openmw.kr9`)와 별도로 설치됩니다. 기존 앱을 삭제하거나 덮어쓰지 않습니다. 새 앱에서 게임 데이터 경로를 선택하고, 세이브를 옮기기 전에 백업하세요. 공유 저장소에서 세이브를 자동으로 가져오는 기능은 비활성화되어 있습니다.
 
 APK는 **영구 보관한 키로 서명한 릴리스 빌드**이며 디버그 모드를 사용하지 않습니다. 향후 이 앱의 업데이트에는 같은 앱 식별자와 서명 키를 유지합니다. 인증서 SHA-256은 다음과 같습니다.
 
 `ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2`
 
-이전 KR9는 임시 키를 사용한 별도 설치판이었으므로 KR11이 그 앱을 직접 업데이트하지 않습니다. [KR9 릴리스](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr9-standalone)는 보존합니다.
+이전 KR9는 임시 키를 사용한 별도 설치판이었으므로 KR12이 그 앱을 직접 업데이트하지 않습니다. [KR9 릴리스](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr9-standalone)는 보존합니다.
 
 검증은 전체 네이티브 빌드, 패치 적용 소스에 대한 토픽·저널 C++ 회귀 검사, 런처 Gradle 검사, 서명·앱 식별자·버전·16 KiB ELF/ZIP 정렬 검사를 포함합니다. Windows에서는 같은 폰트 수정의 로마 숫자·한글 렌더링을 실제 확인했습니다. **Android 기기 전체 플레이 검증은 별도 진행이 필요합니다.** Rebirth ESP는 이 배포에 포함하지 않습니다.
 
