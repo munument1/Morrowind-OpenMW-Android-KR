@@ -1,14 +1,12 @@
 name: Build Android KR11 native and signed release candidate
 
 on:
-  push:
-    branches: [codex/android-kr11-native]
-    paths:
-      - ci/*kr11*
-      - source/app/build.gradle
-      - source/app/src/main/res/values*/strings.xml
-      - .github/workflows/build-kr11-android.yml
   workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: Repackage the verified native artifact from a successful KR11 build (blank rebuilds native)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -44,6 +42,7 @@ jobs:
           yes | "$sdkmanager" --licenses >/dev/null || true
           "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
       - uses: actions/cache@v4
+        if: inputs.native_run_id == ''
         with:
           path: |
             source/buildscripts/downloads
@@ -54,7 +53,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-openmw051-r27d-arm64-16k-v3-
             ${{ runner.os }}-openmw051-r27d-arm64-16k-v2-
+      - name: Recover verified native build for resource-only APK repackaging
+        if: inputs.native_run_id != ''
+        shell: bash
+        env:
+          NATIVE_RUN_ID: ${{ inputs.native_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$NATIVE_RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$NATIVE_RUN_ID" > "$RUNNER_TEMP/native-run.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          run=json.loads((Path(os.environ['RUNNER_TEMP'])/'native-run.json').read_text())
+          assert run['conclusion']=='success'
+          assert run['head_sha']=='115742248a57deedf9560a3a2da4e6903330d114'
+          assert run['name']=='Build Android KR11 native and signed release candidate'
+          print('Verified full native build and C++ regressions from pinned KR11 source')
+          PY
+          gh run download "$NATIVE_RUN_ID" -n Android-KR11-native-build-evidence -D native-artifacts
       - name: Compile Android engine with Korean patches 0001 through 0010
+        if: inputs.native_run_id == ''
         shell: bash
         run: |
           set -euo pipefail
@@ -64,6 +83,7 @@ jobs:
           grep -Fx 'kr10_engine=munument1/Morrowind-OpenMW-KR@22410f633d4de10aaeb8345238a15d45a7f24ca3' native-artifacts/korean-origin.txt
           grep -Fx 'legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c' native-artifacts/korean-origin.txt
       - name: Run real topic recovery and journal index C++ regressions on Android-patched source
+        if: inputs.native_run_id == ''
         shell: bash
         run: |
           set -euo pipefail

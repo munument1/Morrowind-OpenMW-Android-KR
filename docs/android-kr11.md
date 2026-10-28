@@ -22,6 +22,11 @@ The KR11 data ZIP enables U+2160–U+217F Roman numerals in MysticCards. It keep
 the released Android ESP, sidecars, TTF and subtitles unchanged. Install both
 the APK and data update; an APK-only native update does not replace data files.
 
+The Daedric font slot (`Fonts_Font_2`) is restored to `DemonicLetters`, preserving
+the upstream Daedric font definition, glyph font and license byte-for-byte.
+`Fonts_Font_0` remains `MysticCards` for ordinary Korean prose. Daedric inscriptions
+must retain their Latin input text so that the font renders Daedric glyphs.
+
 CI checks the full native patch chain, host C++ topic recovery/index regressions,
 Gradle unit tests, APK application identity, non-debuggable status, permanent
 signature and 16 KiB native ELF/ZIP alignment. Android hardware gameplay is not

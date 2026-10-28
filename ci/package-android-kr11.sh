@@ -63,6 +63,8 @@ rm -rf "$EXTRACTED" source/app/src/main/assets/libopenmw source/app/src/main/ass
 mkdir -p "$EXTRACTED" source/app/src/main/assets
 unzip -q "$BASE_APK" 'assets/libopenmw/*' -d "$EXTRACTED"
 cp -a "$EXTRACTED/assets/libopenmw" source/app/src/main/assets/
+test -s source/app/src/main/assets/libopenmw/resources/vfs/fonts/DemonicLetters.omwfont
+test -s source/app/src/main/assets/libopenmw/resources/vfs/fonts/DemonicLetters.ttf
 if unzip -Z1 "$BASE_APK" | grep -q '^assets/android_omwfx/'; then
   unzip -q "$BASE_APK" 'assets/android_omwfx/*' -d "$EXTRACTED"
   cp -a "$EXTRACTED/assets/android_omwfx" source/app/src/main/assets/
@@ -91,14 +93,14 @@ for name in [
              and not line.startswith('fallback=Movies_New_Game,')
              and not line.startswith('fallback=Movies_Loading,')
              and not line.startswith('fallback=Movies_Options_Menu,')]
-    lines += ['fallback=Fonts_Font_0,MysticCards', 'fallback=Fonts_Font_2,MysticCards']
+    lines += ['fallback=Fonts_Font_0,MysticCards', 'fallback=Fonts_Font_2,DemonicLetters']
     lines += movie_fallbacks
     p.write_text('\n'.join(lines) + '\n', encoding='utf-8')
 PY
 
 for cfg in source/app/openmw.base.cfg source/app/src/main/assets/libopenmw/openmw/openmw.base.cfg; do
   grep -Fx 'fallback=Fonts_Font_0,MysticCards' "$cfg"
-  grep -Fx 'fallback=Fonts_Font_2,MysticCards' "$cfg"
+  grep -Fx 'fallback=Fonts_Font_2,DemonicLetters' "$cfg"
   grep -Fx 'fallback=Movies_New_Game,mw_intro.bik' "$cfg"
 done
 grep -Fq 'category.equals("Fonts", ignoreCase = true)' source/app/src/main/java/file/IniConverter.kt
@@ -135,7 +137,11 @@ grep -Fq 'packageName == "com.ast.openmw.korean"' source/app/src/main/java/utils
 
 unzip -p "$APK" assets/libopenmw/openmw/openmw.base.cfg > /tmp/openmw.base.cfg
 grep -Fx 'fallback=Fonts_Font_0,MysticCards' /tmp/openmw.base.cfg
-grep -Fx 'fallback=Fonts_Font_2,MysticCards' /tmp/openmw.base.cfg
+grep -Fx 'fallback=Fonts_Font_2,DemonicLetters' /tmp/openmw.base.cfg
+for resource in DemonicLetters.omwfont DemonicLetters.ttf DemonicLettersFontLicense.txt; do
+  font="assets/libopenmw/resources/vfs/fonts/$resource"
+  test "$(unzip -p "$APK" "$font" | sha256sum | awk '{print $1}')" = "$(unzip -p "$BASE_APK" "$font" | sha256sum | awk '{print $1}')"
+done
 grep -Fx 'fallback=Movies_New_Game,mw_intro.bik' /tmp/openmw.base.cfg
 
 TMPDIR="$(mktemp -d)"
@@ -175,7 +181,7 @@ cp "$NATIVE_INPUT/korean-origin.txt" "$OUTDIR/korean-origin.txt"
 cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.txt"
 
 {
-  echo 'OpenMW Android 0.51.0-11 Korean KR1 test verification'
+  echo 'OpenMW Android 0.51.0-12 Korean KR11 verification'
   echo 'result=PASS'
   echo 'runtime_patches=0001-0010'
   echo 'standalone_application_id=com.ast.openmw.korean'
@@ -199,4 +205,4 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   cat "$OUTDIR/apk-page-size-report.txt"
 } > "$OUTDIR/16k-verification.txt"
 
-echo 'Verified Korean 0.51.0-12 KR9 permanent unsigned RELEASE candidate with patches 0001-0010 and 16 KiB native ELF alignment.'
+echo 'Verified Korean 0.51.0-12 KR11 permanent unsigned RELEASE candidate with patches 0001-0010 and 16 KiB native ELF alignment.'
