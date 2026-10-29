@@ -1,4 +1,4 @@
-name: Verify reported KR12 translation fixes
+name: Verify KR12.1 translation data fixes
 
 on:
   pull_request:
@@ -33,12 +33,23 @@ jobs:
           python3 'ci/rebuild_kr12_reported_data.py' \
             --platform 'android' \
             --source 'source/OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip' \
-            --output 'output/KR12-issue27-android-candidate.zip' \
-            --report 'output/issue27-android-verification.json'
-          unzip -tq 'output/KR12-issue27-android-candidate.zip'
+            --output 'output/KR12.1-android-candidate.zip' \
+            --report 'output/KR12.1-android-verification.json'
+          unzip -tq 'output/KR12.1-android-candidate.zip'
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('output/KR12.1-android-verification.json').read_text('utf-8'))
+          assert report['patched_esp_sha256'] == '0f04a21d69ecae16a1c2ae3bb0b739ac4e71cdb59054c809fc844128e2c12327'
+          assert report['record_count_unchanged'] == 48146
+          assert len(report['changed_subrecords']) == 4
+          assert report['application_range_label'] == '적용: 자신/접촉/대상'
+          assert report['pillow_shipment_vanilla_condition_changed'] is False
+          assert report['other_zip_members_byte_identical'] is True
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: KR12-Issue27-android-Verified-Candidate
+          name: KR12.1-Android-Verified-Data-Candidate
           path: output/
           if-no-files-found: error
           retention-days: 14

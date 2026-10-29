@@ -89,6 +89,10 @@ def rewrite(raw):
             if as_text(before[b"STRV"]) != "동안":
                 raise ValueError("Duration marker changed since pinned baseline")
             changed.append((b"STRV", "동안", "지속:"))
+        if kind == b"GMST" and as_text(before.get(b"NAME", b"")).lower() == "sonword":
+            if as_text(before[b"STRV"]) != "적용":
+                raise ValueError("Application range label changed since pinned baseline")
+            changed.append((b"STRV", "적용", "적용:"))
         if kind == b"GMST" and as_text(before.get(b"NAME", b"")) == "sEffectLight":
             if as_text(before[b"STRV"]) != "경량":
                 raise ValueError("Light text changed since pinned baseline")
@@ -117,9 +121,9 @@ def rewrite(raw):
                 raise AssertionError("Invalid original record")
             out += header + body
     if [(e["record_type"], e["field"]) for e in edits] != [
-        ("GMST", "STRV"), ("GMST", "STRV"), ("INFO", "NAME")
+        ("GMST", "STRV"), ("GMST", "STRV"), ("GMST", "STRV"), ("INFO", "NAME")
     ]:
-        raise AssertionError("Expected exactly three targeted record edits")
+        raise AssertionError("Expected exactly four targeted record edits")
     rewritten = bytes(out)
     old_records = list(records(raw))
     new_records = list(records(rewritten))
@@ -135,11 +139,11 @@ def rewrite(raw):
             if av != bv:
                 changed_count += 1
                 if not ((a == b"GMST" and ak == b"STRV"
-                         and as_text(dict(af)[b"NAME"]) in ("sEffectLight", "sfor"))
+                         and as_text(dict(af)[b"NAME"]).lower() in ("seffectlight", "sfor", "sonword"))
                         or (a == b"INFO" and ak == b"NAME"
                             and as_text(dict(af)[b"INAM"]) == "5257862417724508")):
                     raise AssertionError("Unexpected field changed")
-    if changed_count != 3:
+    if changed_count != 4:
         raise AssertionError("Unexpected changed field count")
     return rewritten, edits, count
 
@@ -192,6 +196,7 @@ def main():
         "record_count_unchanged": total_records,
         "changed_subrecords": edits,
         "duration_label": "지속: N초",
+        "application_range_label": "적용: 자신/접촉/대상",
         "new_firemoth_cell_aliases": len(FIREMOTH_CELLS),
         "other_zip_members_byte_identical": True,
         "pillow_shipment_vanilla_condition_changed": False,
