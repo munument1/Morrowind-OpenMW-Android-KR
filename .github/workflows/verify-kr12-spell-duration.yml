@@ -23,16 +23,16 @@ jobs:
         run: |
           set -euo pipefail
           bash -n ci/build-korean-native-kr12.sh ci/package-android-kr12.sh
-          grep -Fq "KR12_DURATION_BLOB='29999121dd127c83219a30ae995e0b7ba09b0b61'" ci/build-korean-native-kr12.sh
+          grep -Fq "KR12_DURATION_BLOB='325eaf142f727ef1d95e145b3caf8693c53eebd5'" ci/build-korean-native-kr12.sh
           grep -Fq '"spell_duration_order=$KR12_DURATION_BLOB"' ci/build-korean-native-kr12.sh
-          grep -Fq 'spell_duration_order=29999121dd127c83219a30ae995e0b7ba09b0b61' ci/package-android-kr12.sh
+          grep -Fq 'spell_duration_order=325eaf142f727ef1d95e145b3caf8693c53eebd5' ci/package-android-kr12.sh
           grep -Fq '0013-korean-spell-duration-order.patch' ci/build-korean-native-kr12.sh
       - name: Fetch and verify immutable Windows duration patch
         run: |
           set -euo pipefail
-          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/korean/patches/0013-korean-spell-duration-order.patch?ref=c14471aa75d7aa57c0021a766dd303e3e6f0dbe0' --jq '.content' |
+          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/korean/patches/0013-korean-spell-duration-order.patch?ref=083d73fb8207986a062d843f2b4e5f5503673925' --jq '.content' |
             base64 --decode > duration-order.patch
-          test "$(git hash-object duration-order.patch)" = '29999121dd127c83219a30ae995e0b7ba09b0b61'
+          test "$(git hash-object duration-order.patch)" = '325eaf142f727ef1d95e145b3caf8693c53eebd5'
       - name: Apply patch to official OpenMW 0.51.0 source
         run: |
           set -euo pipefail
@@ -41,6 +41,6 @@ jobs:
           git -C upstream apply --check "$GITHUB_WORKSPACE/duration-order.patch"
           git -C upstream apply "$GITHUB_WORKSPACE/duration-order.patch"
           git -C upstream diff --check
-          grep -Fq 'if (durationMarker == "동안")' upstream/apps/openmw/mwgui/widgets.cpp
+          grep -Fq 'durationMarker == "동안" || durationMarker == "지속:"' upstream/apps/openmw/mwgui/widgets.cpp
           grep -Fq 'spellLine += " 동안";' upstream/apps/openmw/mwgui/widgets.cpp
           grep -Fq 'Preserve the original English/game-setting word order' upstream/apps/openmw/mwgui/widgets.cpp
