@@ -89,7 +89,7 @@ def rewrite(raw):
             if as_text(before[b"STRV"]) != "동안":
                 raise ValueError("Duration marker changed since pinned baseline")
             changed.append((b"STRV", "동안", "지속:"))
-        if kind == b"GMST" and as_text(before.get(b"NAME", b"")) == "sOnWord":
+        if kind == b"GMST" and as_text(before.get(b"NAME", b"")).lower() == "sonword":
             if as_text(before[b"STRV"]) != "적용":
                 raise ValueError("Application range label changed since pinned baseline")
             changed.append((b"STRV", "적용", "적용:"))
