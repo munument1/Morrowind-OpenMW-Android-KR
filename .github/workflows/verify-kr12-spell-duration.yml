@@ -23,7 +23,8 @@ jobs:
         run: |
           set -euo pipefail
           bash -n ci/build-korean-native-kr12.sh ci/package-android-kr12.sh
-          grep -Fq 'spell_duration_order=29999121dd127c83219a30ae995e0b7ba09b0b61' ci/build-korean-native-kr12.sh
+          grep -Fq "KR12_DURATION_BLOB='29999121dd127c83219a30ae995e0b7ba09b0b61'" ci/build-korean-native-kr12.sh
+          grep -Fq '"spell_duration_order=$KR12_DURATION_BLOB"' ci/build-korean-native-kr12.sh
           grep -Fq 'spell_duration_order=29999121dd127c83219a30ae995e0b7ba09b0b61' ci/package-android-kr12.sh
           grep -Fq '0013-korean-spell-duration-order.patch' ci/build-korean-native-kr12.sh
       - name: Fetch and verify immutable Windows duration patch
