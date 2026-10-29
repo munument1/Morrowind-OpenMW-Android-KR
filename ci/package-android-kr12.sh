@@ -130,8 +130,8 @@ for library in libopenmw.so libopenal.so libSDL2.so libGL.so libcollada-dom2.5-d
 done
 
 "$AAPT" dump badging "$APK" > /tmp/badging.txt
-grep -F "versionCode='5114'" /tmp/badging.txt
-grep -F "versionName='0.51.0-12-KR12'" /tmp/badging.txt
+grep -F "versionCode='5115'" /tmp/badging.txt
+grep -F "versionName='0.51.0-12-KR12.1'" /tmp/badging.txt
 grep -Fq "name='com.ast.openmw.korean'" /tmp/badging.txt
 if grep -Fq "name='com.ast.openmw'" /tmp/badging.txt; then
   echo 'Original KR8 package identity was not isolated!' >&2
@@ -169,7 +169,7 @@ rm -rf "$TMPDIR"
 
 "$ZIPALIGN" -c -P 16 4 "$APK"
 
-OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-KR12-Unsigned-16K.apk"
+OUT="$OUTDIR/OpenMW-Android-0.51.0-12-Korean-KR12.1-Unsigned-16K.apk"
 cp "$APK" "$OUT"
 # Keep this candidate unsigned: only the separate, secret-gated workflow
 # may sign and publish it using the backed-up permanent signing identity.
@@ -186,7 +186,7 @@ cp "$NATIVE_INPUT/korean-origin.txt" "$OUTDIR/korean-origin.txt"
 cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.txt"
 
 {
-  echo 'OpenMW Android 0.51.0-12 Korean KR12 verification'
+  echo 'OpenMW Android 0.51.0-12 Korean KR12.1 verification'
   echo 'result=PASS'
   echo 'runtime_patches=0001-0013'
   echo 'standalone_application_id=com.ast.openmw.korean'
@@ -195,8 +195,8 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   echo 'signing=unsigned_release_candidate (requires persistent key)'
   echo 'video_subtitles_engine=enabled'
   echo 'required_page_size=16384'
-  echo 'versionCode=5114'
-  echo 'versionName=0.51.0-12-KR12'
+  echo 'versionCode=5115'
+  echo 'versionName=0.51.0-12-KR12.1'
   echo 'movie_fallback=mw_intro.bik'
   echo 'zipalign_16k=PASS'
   echo
@@ -210,4 +210,4 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   cat "$OUTDIR/apk-page-size-report.txt"
 } > "$OUTDIR/16k-verification.txt"
 
-echo 'Verified Korean KR12 maintenance unsigned RELEASE candidate with patches 0001-0013 and 16 KiB native ELF alignment.'
+echo 'Verified Korean KR12.1 maintenance unsigned RELEASE candidate with patches 0001-0013 and 16 KiB native ELF alignment.'
