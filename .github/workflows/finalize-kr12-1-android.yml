@@ -1,0 +1,141 @@
+name: Finalize signed Android KR12.1 GitHub release from validated native build
+
+on:
+  workflow_run:
+    workflows:
+      - Build and publish Android KR12.1 (GitHub only)
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: Completed KR12.1 native-and-apk workflow run ID
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: android-kr12-1-release-finalizer
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id || inputs.native_run_id }}
+      TAG: android-korean-0.51.0-12-kr12.1-permanent
+      BASE_TAG: android-korean-0.51.0-12-kr12-permanent
+      BASE_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip
+      FINAL_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.1.zip
+      FINAL_APK: OpenMW-Android-0.51.0-12-Korean-KR12.1-Permanent-16K.apk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: gate
+        name: Require successful native build and exact KR12.1 signed-artifact provenance
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Existing signed KR12.1 GitHub release found: no update necessary"
+            echo 'proceed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$REPO/actions/runs/$RUN_ID" > run.json
+          gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" > jobs.json
+          python3 - <<'PY'
+          import json
+          run=json.load(open('run.json'))
+          jobs=json.load(open('jobs.json'))['jobs']
+          assert run['name']=='Build and publish Android KR12.1 (GitHub only)'
+          assert run['head_branch']=='main'
+          assert any(j['name']=='native-and-apk' and j['conclusion']=='success' for j in jobs)
+          assert run['event']=='push' or run['event']=='workflow_dispatch'
+          print('Previously completed native build is valid and signed candidate is expected')
+          PY
+          echo 'proceed=true' >> "$GITHUB_OUTPUT"
+      - name: Download signed candidate from that validated run
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded output
+          gh run download "$RUN_ID" --repo "$REPO" \
+            -n 'Android-KR12.1-Signed-Verified' -D downloaded
+          python3 - <<'PY'
+          from pathlib import Path
+          target=Path('output')
+          for name in (
+              'OpenMW-Android-0.51.0-12-Korean-KR12.1-Permanent-16K.apk',
+              'OpenMW-Android-0.51.0-12-Korean-KR12.1-Permanent-16K.apk.sha256',
+              'korean-origin.txt','libopenmw.so.sha256',
+              'kr12-certificate.txt','kr12-badging.txt','16k-verification.txt',
+          ):
+              matches=list(Path('downloaded').rglob(name))
+              if len(matches)!=1:
+                  raise SystemExit(f'Expected one signed candidate artifact {name}: {matches}')
+              (target/name).write_bytes(matches[0].read_bytes())
+          print('Normalized signed KR12.1 artifact members')
+          PY
+      - name: Rebuild pinned Korean KR12.1 Android data and verify parity
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p source
+          gh release download "$BASE_TAG" --repo "$REPO" \
+            --pattern "$BASE_DATA" --dir source
+          python3 ci/rebuild_kr12_reported_data.py \
+            --platform android --source "source/$BASE_DATA" \
+            --output "output/$FINAL_DATA" \
+            --report output/KR12.1-Android-Data-verification.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open('output/KR12.1-Android-Data-verification.json'))
+          assert p['patched_esp_sha256']=='0f04a21d69ecae16a1c2ae3bb0b739ac4e71cdb59054c809fc844128e2c12327'
+          assert len(p['changed_subrecords'])==4
+          assert p['record_count_unchanged']==48146
+          assert p['pillow_shipment_vanilla_condition_changed'] is False
+          assert p['other_zip_members_byte_identical'] is True
+          PY
+          (cd output && sha256sum "$FINAL_DATA" > "$FINAL_DATA.sha256")
+          (cd output && sha256sum -c "$FINAL_DATA.sha256" && sha256sum -c "$FINAL_APK.sha256")
+          unzip -tq "output/$FINAL_DATA"
+          unzip -tq "output/$FINAL_APK"
+          grep -Fx 'spell_duration_order=325eaf142f727ef1d95e145b3caf8693c53eebd5' output/korean-origin.txt
+          grep -Fi 'Signer #1 certificate SHA-256 digest: ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2' output/kr12-certificate.txt
+          grep -F "versionCode='5115'" output/kr12-badging.txt
+          grep -F "versionName='0.51.0-12-KR12.1'" output/kr12-badging.txt
+      - name: Publish signed Android KR12.1 to GitHub, never Nexus
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Another KR12.1 release appeared; refuse overwrite"
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR12.1
+          Signed Android app and separately verified KR12.1 data ZIP.
+          - Permanent signing identity, versionCode 5115, and 16 KiB native/ZIP alignment.
+          - Magic effect Light now shows 빛; duration is 지속: 30초; targets show 적용: 자신 / 접촉 / 대상.
+          - Dro'Sakhar dialogue hyperlink and ten Siege at Firemoth interior-name aliases.
+          - pillow shipment not modified; reserved for future Patch for Purists translation work.
+          - Native build and data ZIP hashes verified. Live-game field testing is still requested.
+
+          **Android users need the KR12.1 APK and data ZIP. GitHub Releases only; Android is not uploaded to Nexus Mods.**
+          EOF
+          gh release create "$TAG" \
+            "output/$FINAL_APK" "output/$FINAL_APK.sha256" \
+            "output/$FINAL_DATA" "output/$FINAL_DATA.sha256" \
+            output/KR12.1-Android-Data-verification.json \
+            output/korean-origin.txt output/kr12-certificate.txt \
+            output/libopenmw.so.sha256 output/16k-verification.txt \
+            --title 'OpenMW Android 0.51.0-12 Korean KR12.1 — signed update' \
+            --notes-file release-notes.md --target "$GITHUB_SHA" --latest
