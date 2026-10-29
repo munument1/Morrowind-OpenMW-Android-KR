@@ -69,6 +69,13 @@ KR12_SUBTITLE_BLOB='9ccc477acf8488bf3b93e5b64b897ddb8a7f52af'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0012-voice-synchronized-subtitles.patch?ref=$KR12_SUBTITLE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0012-voice-synchronized-subtitles.patch"
 test "$(git hash-object "$DEST/0012-voice-synchronized-subtitles.patch")" = "$KR12_SUBTITLE_BLOB"
 
+# Restore natural Korean "30초 동안" order in native spell-effect widgets.
+KR12_DURATION_COMMIT='c14471aa75d7aa57c0021a766dd303e3e6f0dbe0'
+KR12_DURATION_BLOB='29999121dd127c83219a30ae995e0b7ba09b0b61'
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0013-korean-spell-duration-order.patch?ref=$KR12_DURATION_COMMIT" --jq '.content' \
+  | base64 --decode > "$DEST/0013-korean-spell-duration-order.patch"
+test "$(git hash-object "$DEST/0013-korean-spell-duration-order.patch")" = "$KR12_DURATION_BLOB"
+
 
 printf '%s\n' \
   "$KOREAN_ENGINE_REPO@$KOREAN_ENGINE_COMMIT" \
@@ -88,6 +95,8 @@ printf '%s\n' \
   "topic_link_fix=$KR12_TOPIC_LINK_BLOB" \
   "voice_subtitle_sync=$KR12_SUBTITLE_BLOB" \
   "subtitle_engine=$KR12_ENGINE_REPO@$KR12_SUBTITLE_COMMIT" \
+  "spell_duration_engine=$KR12_ENGINE_REPO@$KR12_DURATION_COMMIT" \
+  "spell_duration_order=$KR12_DURATION_BLOB" \
   "ndk=$NDK_PACKAGE" \
   "page_ldflags=$PAGE_LDFLAGS" > "$OUTDIR/korean-origin.txt"
 
@@ -115,7 +124,8 @@ replacement = '''        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/app
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0009-korean-honorific-particle.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0010-legacy-korean-topic-recovery.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0011-korean-topic-discovery-and-work-links.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0012-voice-synchronized-subtitles.patch
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0012-voice-synchronized-subtitles.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0013-korean-spell-duration-order.patch
 )'''
 if 'patches/kr-origin/0001-cjk-topic-discovery.patch' not in text:
     if needle not in text:
@@ -140,6 +150,7 @@ grep -Fq 'patches/kr-origin/0005-video-subtitles.patch' source/buildscripts/CMak
 grep -Fq 'patches/kr-origin/0006-journal-topic-keywords.patch' source/buildscripts/CMakeLists.txt
 grep -Fq 'patches/kr-origin/0007-korean-journal-index.patch' source/buildscripts/CMakeLists.txt
 grep -Fq 'patches/kr-origin/0008-korean-implicit-topic-boundaries.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0013-korean-spell-duration-order.patch' source/buildscripts/CMakeLists.txt
 grep -Fq -- '-Wl,-z,max-page-size=16384' source/buildscripts/build.sh
 grep -Fq -- '-Wl,-z,common-page-size=16384' source/buildscripts/build.sh
 
@@ -190,6 +201,8 @@ if [[ -s "$JNI" ]]; then
   grep -Fq 'loadSubtitles(video);' "$SRC/apps/openmw/mwgui/videowidget.cpp"
   grep -Fq 'isSaySoundPlaying' "$SRC/apps/openmw/mwgui/messagebox.cpp"
   grep -Fq 'voiceSubtitle(info->mResponse' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
+  grep -Fq 'if (durationMarker == "동안")' "$SRC/apps/openmw/mwgui/widgets.cpp"
+  grep -Fq 'spellLine += " 동안";' "$SRC/apps/openmw/mwgui/widgets.cpp"
   set +x
 fi
 
@@ -230,4 +243,4 @@ if [[ $ALIGN_FAIL -ne 0 ]]; then
   exit 1
 fi
 
-echo 'KR12 Korean native runtime built with patches 0001-0012 and 16 KiB ELF alignment.'
+echo 'Korean native runtime built with patches 0001-0013 and 16 KiB ELF alignment.'
