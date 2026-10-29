@@ -28,6 +28,7 @@ test "$ACTUAL_KR_SHA" != 'cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d
 grep -Fxq 'voice_subtitle_sync=9ccc477acf8488bf3b93e5b64b897ddb8a7f52af' "$NATIVE_INPUT/korean-origin.txt"
 
 grep -Fxq 'topic_link_fix=1f40a0952d193b4ba68cb4f6ffa08091233353f8' "$NATIVE_INPUT/korean-origin.txt"
+grep -Fxq 'spell_duration_order=29999121dd127c83219a30ae995e0b7ba09b0b61' "$NATIVE_INPUT/korean-origin.txt"
 
 grep -Fxq 'legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c' "$NATIVE_INPUT/korean-origin.txt"
 grep -Fxq 'korean_honorific=103e64ca1e5e63d8a08e516e0f21ede004ea516a' "$NATIVE_INPUT/korean-origin.txt"
@@ -187,7 +188,7 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
 {
   echo 'OpenMW Android 0.51.0-12 Korean KR12 verification'
   echo 'result=PASS'
-  echo 'runtime_patches=0001-0012'
+  echo 'runtime_patches=0001-0013'
   echo 'standalone_application_id=com.ast.openmw.korean'
   echo 'original_application_id=com.ast.openmw'
   echo 'legacy_shared_storage_migration=disabled_for_standalone'
@@ -209,4 +210,4 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
   cat "$OUTDIR/apk-page-size-report.txt"
 } > "$OUTDIR/16k-verification.txt"
 
-echo 'Verified Korean 0.51.0-12 KR12 permanent unsigned RELEASE candidate with patches 0001-0012 and 16 KiB native ELF alignment.'
+echo 'Verified Korean KR12 maintenance unsigned RELEASE candidate with patches 0001-0013 and 16 KiB native ELF alignment.'
