@@ -70,8 +70,8 @@ gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0012-voice-synchronized-
 test "$(git hash-object "$DEST/0012-voice-synchronized-subtitles.patch")" = "$KR12_SUBTITLE_BLOB"
 
 # Restore natural Korean "30초 동안" order in native spell-effect widgets.
-KR12_DURATION_COMMIT='c14471aa75d7aa57c0021a766dd303e3e6f0dbe0'
-KR12_DURATION_BLOB='29999121dd127c83219a30ae995e0b7ba09b0b61'
+KR12_DURATION_COMMIT='083d73fb8207986a062d843f2b4e5f5503673925'
+KR12_DURATION_BLOB='325eaf142f727ef1d95e145b3caf8693c53eebd5'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0013-korean-spell-duration-order.patch?ref=$KR12_DURATION_COMMIT" --jq '.content' \
   | base64 --decode > "$DEST/0013-korean-spell-duration-order.patch"
 test "$(git hash-object "$DEST/0013-korean-spell-duration-order.patch")" = "$KR12_DURATION_BLOB"
@@ -201,7 +201,7 @@ if [[ -s "$JNI" ]]; then
   grep -Fq 'loadSubtitles(video);' "$SRC/apps/openmw/mwgui/videowidget.cpp"
   grep -Fq 'isSaySoundPlaying' "$SRC/apps/openmw/mwgui/messagebox.cpp"
   grep -Fq 'voiceSubtitle(info->mResponse' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
-  grep -Fq 'if (durationMarker == "동안")' "$SRC/apps/openmw/mwgui/widgets.cpp"
+  grep -Fq 'durationMarker == "동안" || durationMarker == "지속:"' "$SRC/apps/openmw/mwgui/widgets.cpp"
   grep -Fq 'spellLine += " 동안";' "$SRC/apps/openmw/mwgui/widgets.cpp"
   set +x
 fi
