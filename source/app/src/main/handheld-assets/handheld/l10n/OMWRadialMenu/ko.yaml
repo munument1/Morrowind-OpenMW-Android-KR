@@ -1,0 +1,31 @@
+Page: "방사형 메뉴"
+PageDescription: "게임패드로 사용하는 빠른 선택 메뉴입니다. 8칸씩 4페이지를 직접 지정할 수 있습니다."
+
+Group: "방사형 메뉴"
+
+enabled: "방사형 메뉴 사용"
+enabledDescription: |
+  L1을 길게 눌러 메뉴를 엽니다. 방향키 왼쪽/오른쪽으로 페이지를 바꾸고,
+  위쪽/아래쪽으로 현재 페이지의 상단/하단 즐겨찾기를 사용합니다.
+  Y를 눌러 선택한 칸에 무기, 물약, 아이템, 주문 또는 마법 부여 아이템을 지정합니다.
+
+openBinding: "방사형 메뉴 열기"
+openBindingDescription: "게임 중 이 버튼을 길게 누르면 메뉴가 열립니다. 기본값은 L1입니다."
+
+empty: "비어 있음"
+missing: "찾을 수 없음"
+handToHand: "격투"
+unarmed: "맨손"
+power: "능력"
+potion: "물약"
+ingredient: "재료"
+pageLabel: "{page} / {count}페이지"
+assignTitle: "{index}번 칸 지정"
+hint: "놓으면 사용  ·  방향키 좌/우: 페이지  ·  위/아래: 즐겨찾기  ·  Y: 지정  ·  X: 지우기  ·  B: 취소"
+pickerHint: "A: 지정  ·  L1/R1: 페이지  ·  B: 뒤로"
+clearSlot: "칸 비우기"
+assigned: "{name}을(를) {page}페이지 {index}번 칸에 지정했습니다"
+assignFull: "방사형 메뉴가 가득 찼습니다"
+assignNothing: "지정할 항목이 없습니다"
+open_name: "방사형 메뉴"
+open_description: "길게 눌러 무기, 주문, 물약 선택 메뉴를 엽니다."
