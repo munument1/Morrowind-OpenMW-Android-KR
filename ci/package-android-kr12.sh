@@ -28,7 +28,7 @@ test "$ACTUAL_KR_SHA" != 'cf106f05d5292663caef5ee2b4588517a9c0da211674f7571cee5d
 grep -Fxq 'voice_subtitle_sync=9ccc477acf8488bf3b93e5b64b897ddb8a7f52af' "$NATIVE_INPUT/korean-origin.txt"
 
 grep -Fxq 'topic_link_fix=1f40a0952d193b4ba68cb4f6ffa08091233353f8' "$NATIVE_INPUT/korean-origin.txt"
-grep -Fxq 'spell_duration_order=29999121dd127c83219a30ae995e0b7ba09b0b61' "$NATIVE_INPUT/korean-origin.txt"
+grep -Fxq 'spell_duration_order=325eaf142f727ef1d95e145b3caf8693c53eebd5' "$NATIVE_INPUT/korean-origin.txt"
 
 grep -Fxq 'legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c' "$NATIVE_INPUT/korean-origin.txt"
 grep -Fxq 'korean_honorific=103e64ca1e5e63d8a08e516e0f21ede004ea516a' "$NATIVE_INPUT/korean-origin.txt"
