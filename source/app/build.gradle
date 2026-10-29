@@ -8,8 +8,8 @@ apply plugin: 'kotlin-android'
  * calibrated OMWFX chain together behind one build-time verification gate.
  */
 
-def openMwVersionCode = 5114
-def openMwAndroidVersionName = '0.51.0-12-KR12'
+def openMwVersionCode = 5115
+def openMwAndroidVersionName = '0.51.0-14-KR14-dev'
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -146,9 +146,9 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        if (openMwVersionCode != 5114 || calculateVersion() != '0.51.0-12-KR12') {
+        if (openMwVersionCode != 5115 || calculateVersion() != '0.51.0-14-KR14-dev') {
             throw new GradleException(
-                    'OpenMW Android final release identity must be versionName 0.51.0-12-KR12 and versionCode 5114.'
+                    'OpenMW Android final release identity must be versionName 0.51.0-14-KR14-dev and versionCode 5115.'
             )
         }
 
@@ -743,6 +743,9 @@ android {
             resources {
                 srcDir "wrap/res"
             }
+            assets {
+                srcDir "src/main/handheld-assets"
+            }
 
             // Do not merge the generated upstream OMWFX VFS overlay.
             // MainActivity exposes only the calibrated
@@ -821,6 +824,11 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+        }
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/main/cpp/Android.mk'
         }
     }
 }
