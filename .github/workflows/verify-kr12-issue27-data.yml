@@ -1,0 +1,44 @@
+name: Verify reported KR12 translation fixes
+
+on:
+  pull_request:
+    paths:
+      - 'ci/rebuild_kr12_reported_data.py'
+      - '.github/workflows/verify-kr12-issue27-data.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce-data-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download the immutable published KR12 baseline
+        run: |
+          mkdir -p source output
+          gh release download 'android-korean-0.51.0-12-kr12-permanent' \
+            --repo 'munument1/Morrowind-OpenMW-Android-KR' \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip' --dir source
+      - name: Rebuild, verify and retain a candidate only (never republish)
+        run: |
+          set -euo pipefail
+          python3 'ci/rebuild_kr12_reported_data.py' \
+            --platform 'android' \
+            --source 'source/OpenMW-Android-0.51.0-12-Korean-Data-KR12.zip' \
+            --output 'output/KR12-issue27-android-candidate.zip' \
+            --report 'output/issue27-android-verification.json'
+          unzip -tq 'output/KR12-issue27-android-candidate.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KR12-Issue27-android-Verified-Candidate
+          path: output/
+          if-no-files-found: error
+          retention-days: 14
