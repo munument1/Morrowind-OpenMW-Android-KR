@@ -131,9 +131,9 @@ def rewrite(raw):
             if av != bv:
                 changed_count += 1
                 if not ((a == b"GMST" and ak == b"STRV"
-                         and as_text(dict(af)["NAME"]) == "sEffectLight")
+                         and as_text(dict(af)[b"NAME"]) == "sEffectLight")
                         or (a == b"INFO" and ak == b"NAME"
-                            and as_text(dict(af)["INAM"]) == "5257862417724508")):
+                            and as_text(dict(af)[b"INAM"]) == "5257862417724508")):
                     raise AssertionError("Unexpected field changed")
     if changed_count != 2:
         raise AssertionError("Unexpected changed field count")
