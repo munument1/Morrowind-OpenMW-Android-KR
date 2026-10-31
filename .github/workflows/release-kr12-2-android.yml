@@ -5,6 +5,9 @@ on:
     branches: [main, 'feature/android-kr12-2-topic-port']
     paths:
       - .github/workflows/release-kr12-2-android.yml
+      - ci/build-korean-native-kr12-2.sh
+      - ci/package-android-kr12-2.sh
+      - source/app/build.gradle
   workflow_dispatch:
     inputs:
       native_run_id:
