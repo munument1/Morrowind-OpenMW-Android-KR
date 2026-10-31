@@ -146,9 +146,9 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        if (openMwVersionCode != 5115 || calculateVersion() != '0.51.0-12-KR12.1') {
+        if (openMwVersionCode != 5116 || calculateVersion() != '0.51.0-12-KR12.2') {
             throw new GradleException(
-                    'OpenMW Android final release identity must be versionName 0.51.0-12-KR12.1 and versionCode 5115.'
+                    'OpenMW Android final release identity must be versionName 0.51.0-12-KR12.2 and versionCode 5116.'
             )
         }
 
