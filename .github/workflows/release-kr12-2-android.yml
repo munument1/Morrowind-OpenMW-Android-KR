@@ -1,13 +1,8 @@
 name: Build and publish Android KR12.2 (GitHub only)
 
+# KR12.2 has already been published from the verified native build.
+# Do not start a full native rebuild on documentation or workflow maintenance pushes.
 on:
-  push:
-    branches: [main, 'feature/android-kr12-2-topic-port']
-    paths:
-      - .github/workflows/release-kr12-2-android.yml
-      - ci/build-korean-native-kr12-2.sh
-      - ci/package-android-kr12-2.sh
-      - source/app/build.gradle
   workflow_dispatch:
     inputs:
       native_run_id:
@@ -211,6 +206,27 @@ jobs:
         with:
           name: Android-KR12.2-Signed-Verified
           path: output
+      - name: Normalize signed artifact paths after GitHub Actions download
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          output=Path("output")
+          apk=os.environ["FINAL_APK"]
+          required=(
+              apk,apk+".sha256","korean-origin.txt","libopenmw.so.sha256",
+              "kr12-certificate.txt","kr12-badging.txt","16k-verification.txt"
+          )
+          for name in required:
+              found=[f for f in output.rglob(name) if f.is_file() and f.name==name]
+              if len(found)!=1:
+                  raise SystemExit(f"Expected one signed artifact {name}: {found}")
+              target=output/name
+              if found[0]!=target:
+                  target.write_bytes(found[0].read_bytes())
+              print("Artifact normalized:",name)
+          PY
       - name: Build KR12.2 Android translation data from pinned public KR12
         run: |
           set -euo pipefail
