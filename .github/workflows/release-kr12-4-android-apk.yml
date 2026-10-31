@@ -1,0 +1,257 @@
+name: Build and release Android KR12.4 signed native update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ci/build-korean-native-kr12-4.sh
+      - ci/package-android-kr12-4.sh
+      - .github/workflows/release-kr12-4-android-apk.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: android-kr124-permanent-signed-apk
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  CERT_SHA: ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2
+  RELEASE_TAG: android-korean-0.51.0-12-kr12.4-permanent
+  DATA_TAG: android-korean-0.51.0-12-kr12.4-data-only
+  DATA_FILE: OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip
+  FINAL_APK: OpenMW-Android-0.51.0-12-Korean-KR12.4-Permanent-16K.apk
+  JOBS: '4'
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate pinned 0016 patch and signed update scripts
+        run: |
+          set -euo pipefail
+          test -x /usr/bin/git
+          bash -n ci/build-korean-native-kr12-4.sh ci/package-android-kr12-4.sh
+          grep -Fq '0016-korean-predicative-topic-boundaries.patch' ci/build-korean-native-kr12-4.sh
+          grep -Fq '710a0c1320c8aef66a88732a21e67392777bafbb' ci/build-korean-native-kr12-4.sh
+          grep -Fq 'versionCode=5117' ci/package-android-kr12-4.sh
+          grep -Fq 'runtime_patches=0001-0016' ci/package-android-kr12-4.sh
+          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/korean/patches/0016-korean-predicative-topic-boundaries.patch?ref=e677c70d7a81f2033ee6f6ace4fac4533c4211b5' --jq .content | base64 --decode > /tmp/predicative.patch
+          test "$(git hash-object /tmp/predicative.patch)" = '710a0c1320c8aef66a88732a21e67392777bafbb'
+          gh release view "$DATA_TAG" --repo "$GH_REPO" >/dev/null
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "::error::Signed KR12.4 already released. Refusing overwrite."
+            exit 1
+          fi
+
+  native-and-apk:
+    runs-on: ubuntu-24.04
+    needs: preflight
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install NDK R27, build tools and native prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git curl wget patch unzip zip python3 perl autoconf automake libtool libtool-bin pkg-config bison flex gettext gperf nasm yasm texinfo bzip2 xz-utils
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            source/buildscripts/downloads
+            source/buildscripts/prefix/arm64
+            source/buildscripts/build/arm64
+            !source/buildscripts/build/arm64/openmw-prefix
+          key: ${{ runner.os }}-openmw051-r27d-arm64-16k-kr124-${{ hashFiles('source/buildscripts/CMakeLists.txt','ci/build-korean-native-kr12-4.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-kr12-
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-kr11-
+      - name: Compile pinned OpenMW 0.51.0 with Korean 0001-0016 patches
+        run: |
+          set -euo pipefail
+          chmod +x ci/patch-sdl2-ndk-r27.sh ci/build-korean-native-kr12-4.sh
+          ci/patch-sdl2-ndk-r27.sh
+          ci/build-korean-native-kr12-4.sh
+          grep -Fx 'kr12_4_engine_commit=e677c70d7a81f2033ee6f6ace4fac4533c4211b5' native-artifacts/korean-origin.txt
+          grep -Fx 'predicative_topic_patch=710a0c1320c8aef66a88732a21e67392777bafbb' native-artifacts/korean-origin.txt
+          grep -Fx 'noun_topic_patch=1f402a0db93c8d01ca123edfe528ae411cc825c1' native-artifacts/korean-origin.txt
+          grep -Fx 'required_min_load_align=0x4000' native-artifacts/page-size-report.txt
+          test -s native-artifacts/libs/libopenmw.so
+      - name: Test true Android-patched native KeywordSearch regression
+        run: |
+          set -euo pipefail
+          src=source/buildscripts/build/arm64/openmw-prefix/src/openmw
+          test -s "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          grep -F 'futureVerbEndings' "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          grep -F 'zeroCodaNounEndings' "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          mkdir -p regression
+          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/verify-issue42-topic-endings.cpp?ref=e677c70d7a81f2033ee6f6ace4fac4533c4211b5' --jq '.content' | base64 --decode > regression/verify-issue42-topic-endings.cpp
+          g++ -std=c++20 -O2 -I"$src" \
+            regression/verify-issue42-topic-endings.cpp \
+            "$src/apps/openmw/mwdialogue/keywordsearch.cpp" \
+            "$src/components/translation/translation.cpp" \
+            "$src/components/files/collections.cpp" \
+            "$src/components/files/multidircollection.cpp" \
+            "$src/components/files/conversion.cpp" \
+            "$src/components/toutf8/toutf8.cpp" \
+            "$src/components/debug/debuglog.cpp" \
+            -o regression/issue42-android
+          regression/issue42-android
+      - name: Package non-debuggable Android KR12.4 16KiB APK, increment versionCode to 5117
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-android-kr12-4.sh
+          NATIVE_INPUT=native-artifacts ci/package-android-kr12-4.sh
+          test -s release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR12.4-Unsigned-16K.apk
+          grep -Fx 'runtime_patches=0001-0016' release-artifacts/16k-verification.txt
+          grep -Fx 'versionCode=5117' release-artifacts/16k-verification.txt
+      - name: Decrypt permanent signing identity from authorized repository secrets
+        env:
+          ENC_KEYSTORE: ${{ secrets.ANDROID_KR11_ENCRYPTED_KEYSTORE_JSON }}
+          KEY_HEX: ${{ secrets.ANDROID_KR11_SIGNING_KEY_HEX }}
+        run: |
+          set -euo pipefail
+          test -n "$ENC_KEYSTORE"
+          test -n "$KEY_HEX"
+          python3 -m venv "$RUNNER_TEMP/signing-venv"
+          "$RUNNER_TEMP/signing-venv/bin/pip" --quiet install cryptography==46.0.4
+          "$RUNNER_TEMP/signing-venv/bin/python" - <<'PY'
+          import os,json,base64,zlib
+          from pathlib import Path
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          payload=json.loads(os.environ['ENC_KEYSTORE'])
+          assert payload['certificate_sha256']==os.environ['CERT_SHA']
+          obj=json.loads(zlib.decompress(AESGCM(bytes.fromhex(os.environ['KEY_HEX'])).decrypt(
+              base64.b64decode(payload['nonce_base64']),base64.b64decode(payload['ciphertext_base64']),
+              b'openmw-korean-android-signing-v1')))
+          assert obj['package']=='com.ast.openmw.korean' and obj['certificate_sha256']==os.environ['CERT_SHA']
+          tmp=Path(os.environ['RUNNER_TEMP'])
+          for name,data in (('release.p12',base64.b64decode(obj['keystore_base64'])),
+                            ('release-password.txt',obj['keystore_password'].encode())):
+              path=tmp/name;path.write_bytes(data);path.chmod(0o600)
+          print('Verified original release certificate; no secret material printed')
+          PY
+      - name: Zipalign and permanently sign upgrade APK with existing release certificate
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -P 16 -f 4 \
+            release-artifacts/OpenMW-Android-0.51.0-12-Korean-KR12.4-Unsigned-16K.apk "$RUNNER_TEMP/aligned.apk"
+          export KS_PASS="$(cat "$RUNNER_TEMP/release-password.txt")"
+          echo "::add-mask::$KS_PASS"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.p12" --ks-type PKCS12 \
+            --ks-key-alias morrowind-openmw-korean-android --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out "release-artifacts/$FINAL_APK" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --verbose --print-certs "release-artifacts/$FINAL_APK" > release-artifacts/kr124-certificate.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $CERT_SHA" release-artifacts/kr124-certificate.txt
+          "$tools/zipalign" -c -P 16 4 "release-artifacts/$FINAL_APK"
+          "$tools/aapt" dump badging "release-artifacts/$FINAL_APK" > release-artifacts/kr124-badging.txt
+          grep -F "name='com.ast.openmw.korean'" release-artifacts/kr124-badging.txt
+          grep -F "versionCode='5117'" release-artifacts/kr124-badging.txt
+          grep -F "versionName='0.51.0-12-KR12.4'" release-artifacts/kr124-badging.txt
+          if grep -Fq 'application-debuggable' release-artifacts/kr124-badging.txt; then
+            echo "::error::Refuse debuggable signed release"; exit 1
+          fi
+          test "$(unzip -p "release-artifacts/$FINAL_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')" = "$(awk 'NR==1{print $1}' native-artifacts/libopenmw.so.sha256)"
+          (cd release-artifacts && sha256sum "$FINAL_APK" > "$FINAL_APK.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR12.4-Permanent-Signed-Verified
+          path: |
+            release-artifacts/*-Permanent-16K.apk
+            release-artifacts/*-Permanent-16K.apk.sha256
+            release-artifacts/16k-verification.txt
+            release-artifacts/kr124-certificate.txt
+            release-artifacts/kr124-badging.txt
+            native-artifacts/korean-origin.txt
+            native-artifacts/libopenmw.so.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - name: Destroy ephemeral signing secrets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12" "$RUNNER_TEMP/release-password.txt" "$RUNNER_TEMP/aligned.apk"
+
+  publish:
+    needs: native-and-apk
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Android-KR12.4-Permanent-Signed-Verified
+          path: output
+      - name: Verify signed APK and official already-released KR12.4 data ZIP
+        run: |
+          set -euo pipefail
+          for f in "$FINAL_APK" "$FINAL_APK.sha256" kr124-certificate.txt \
+                   kr124-badging.txt 16k-verification.txt korean-origin.txt libopenmw.so.sha256; do
+            test -s "output/$f" || { echo "::error::Missing signed artifact: $f"; exit 1; }
+          done
+          (cd output && sha256sum -c "$FINAL_APK.sha256")
+          gh release download "$DATA_TAG" --repo "$GH_REPO" \
+            --pattern "$DATA_FILE" --pattern "$DATA_FILE.sha256" \
+            --pattern KR12.4-Android-Data-verification.json --dir output
+          (cd output && sha256sum -c "$DATA_FILE.sha256")
+          echo '14dae4ea136e76cb5615c3d81a3da1abf5ae9e6a2b6c5e5929c33b0a79f1d672  output/OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip' | sha256sum -c -
+          python3 - <<'PY'
+          import json
+          v=json.load(open('output/KR12.4-Android-Data-verification.json'))
+          assert v['new_esp_sha256']=='2276384ad93fd3e56bc0d401aacc45418ba38993ee798e0e1a7e09564a375d3a'
+          assert v['changed_INFO_count']==91 and v['changed_TOP_alias_count']==3
+          assert not v['native_patch_0016_included_in_android_apk']
+          PY
+          grep -Fx 'predicative_topic_patch=710a0c1320c8aef66a88732a21e67392777bafbb' output/korean-origin.txt
+          grep -Fx 'runtime_patches=0001-0016' output/16k-verification.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $CERT_SHA" output/kr124-certificate.txt
+          grep -F "versionCode='5117'" output/kr124-badging.txt
+          grep -F "versionName='0.51.0-12-KR12.4'" output/kr124-badging.txt
+          unzip -tq "output/$FINAL_APK"
+          unzip -tq "output/$DATA_FILE"
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "::error::KR12.4 signed release exists, refusing overwrite"; exit 1
+          fi
+      - name: Publish new full Android KR12.4 APK + data, preserving older releases
+        run: |
+          set -euo pipefail
+          cat > /tmp/android-release-notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR12.4 — 영구 서명 APK + 전체 번역 데이터
+
+          Windows KR12.4 한국어 토픽 엔진/데이터 수정이 Android에도 적용된 **정식 통합 업데이트**입니다.
+          **APK와 데이터 ZIP을 모두 설치**하세요. 이슈 #42 전용 패치 파일이 아닙니다.
+
+          - Windows의 0016 한국어 서술격·호격·동사 어미 토픽 경계 수정 Android ARM64 네이티브 엔진에 이식
+          - 기존 한국어 엔진 패치 0001–0015 유지, 공식 OpenMW 0.51.0 원본 고정
+          - 한국어 INFO 대사 링크 91건, TOP 별칭 3건 교정된 KR12.4 전체 번역 데이터 ZIP 동봉
+          - 기존 KR12.2의 앱 ID \`com.ast.openmw.korean\` 및 **동일한 영구 서명 인증서 유지**
+          - 업그레이드 가능하게 versionCode **5116 → 5117**, versionName **0.51.0-12-KR12.4**
+          - 16KiB ELF LOAD/ZIP alignment, APK 서명·비디버그 모드, 네이티브 토픽 회귀, 해시 및 번역 데이터 무결성 검증
+
+          **실기기 전체 플레이 및 모든 퀘스트 단계 검증은 미수행**입니다. 문제 발생 시 설정·세이브를 백업하고 이슈 #42에 제보하세요.
+          \`Morrowind.esm\` 등 원본 게임 파일은 포함하지 않습니다.
+
+          Android 배포는 **GitHub Releases만** 사용합니다. Nexus Mods의 Windows 전용 파일과 혼동하지 마세요.
+          EOF
+          gh release create "$RELEASE_TAG" \
+            "output/$FINAL_APK" "output/$FINAL_APK.sha256" \
+            "output/$DATA_FILE" "output/$DATA_FILE.sha256" \
+            output/KR12.4-Android-Data-verification.json \
+            output/kr124-certificate.txt output/16k-verification.txt \
+            output/korean-origin.txt output/libopenmw.so.sha256 \
+            --repo "$GH_REPO" --target "$GITHUB_SHA" \
+            --title 'OpenMW Android 0.51.0-12 한국어 KR12.4 — 영구 서명 통합판' \
+            --notes-file /tmp/android-release-notes.md --latest
