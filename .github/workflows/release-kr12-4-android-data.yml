@@ -1,0 +1,117 @@
+name: Publish Android KR12.4 shared translation DATA ONLY
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ci/package_android_kr12_4_data.py
+      - .github/workflows/release-kr12-4-android-data.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-kr124-shared-data-only-release
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  ATAG: android-korean-0.51.0-12-kr12.2-permanent
+  ASSET: OpenMW-Android-0.51.0-12-Korean-Data-KR12.2.zip
+  WTAG: openmw-0.51.0-kr12.4
+  WASSET: Morrowind-Korean-OpenMW-0.51.0-KR12.4-Full.zip
+  TAG: android-korean-0.51.0-12-kr12.4-data-only
+  OUTPUT: OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip
+
+jobs:
+  data-parity-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source code and refuse to overwrite any published data release
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/package_android_kr12_4_data.py
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Android data KR12.4 release already exists; refusing overwrite."
+            exit 1
+          fi
+      - name: Fetch immutable Android KR12.2 data and Windows KR12.4 reference
+        run: |
+          set -euo pipefail
+          mkdir -p input output
+          gh release download "$ATAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET" --pattern "$ASSET.sha256" --dir input
+          gh release download "$WTAG" --repo munument1/Morrowind-OpenMW-KR \
+            --pattern "$WASSET" --pattern "$WASSET.sha256" --dir input
+          (cd input && sha256sum -c "$ASSET.sha256" && sha256sum -c "$WASSET.sha256")
+          echo '59bbf4ef4a54f95f03778e16812e37b2b5aa10e35b9b1d7f4da36d744ca0f0bd  input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.2.zip' | sha256sum -c -
+          echo '71fbbd1ae5506df4444fe47f31b29101f010a96fa5d73bb4b8699977cd211497  input/Morrowind-Korean-OpenMW-0.51.0-KR12.4-Full.zip' | sha256sum -c -
+      - name: Rebuild and independently verify exact ESP/TOP data parity
+        run: |
+          set -euo pipefail
+          python3 ci/package_android_kr12_4_data.py \
+            --source "input/$ASSET" --windows "input/$WASSET" \
+            --output "output/$OUTPUT" --report output/KR12.4-Android-Data-verification.json
+          unzip -tq "output/$OUTPUT"
+          (cd output && sha256sum -c "$OUTPUT.sha256")
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('output/KR12.4-Android-Data-verification.json').read_text(encoding='utf8'))
+          assert data['changed_INFO_count']==91 and data['changed_TOP_alias_count']==3
+          assert data['new_esp_sha256']=='2276384ad93fd3e56bc0d401aacc45418ba38993ee798e0e1a7e09564a375d3a'
+          assert data['new_top_sha256']=='0516f17495afbdf5e3712d40aad9f11dc314edc7bd75ef33c9a8018b5fc60b16'
+          assert data['other_android_zip_members_byte_identical']
+          assert data['unrelated_records_and_scripts_byte_identical']
+          assert data['displayed_Korean_unchanged'] and data['zip_crc']=='PASS'
+          assert not data['new_android_apk'] and not data['native_patch_0016_included_in_android_apk']
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR12.4-DATA-ONLY-Verified
+          path: |
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip.sha256
+            output/KR12.4-Android-Data-verification.json
+          if-no-files-found: error
+      - name: Release Android KR12.4 data ONLY; signed APK remains KR12.2
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release appeared concurrently; refusing overwrite"
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## Android KR12.4 한국어 **데이터 전용** 업데이트
+
+          Windows KR12.4와 동일한 번역 데이터 교정을 Android용 데이터 ZIP에 적용했습니다.
+          **추가 이슈 전용 패치를 설치하는 것이 아니라 기존 전체 한국어 데이터 ZIP의 누적 업데이트입니다.**
+
+          - INFO 대사 91건의 명시 토픽 연결 수정(79건 교정 + 원본 영어 비교 12건)
+          - TOP 별칭 3건 수정
+          - 기존 Android KR12.2 한국어 데이터의 나머지 파일/대사 조건/스크립트/폰트/자막 변경 없음
+
+          **반드시 주의:** 이 릴리스에는 새 APK가 없습니다. Android에 설치된
+          [기존 KR12.2 영구 서명 APK](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.2-permanent)와 함께
+          KR12.4 데이터 ZIP을 사용하세요. 설치 전 기존 데이터와 세이브를 백업하고 OpenMW 런처에서 번역 ESP 활성화를 확인하세요.
+
+          Android KR12.2 엔진에는 Windows KR12.4의 네이티브 한국어 서술격·동사 어미 패치 0016이 아직 포함되지 않습니다.
+          따라서 이 업데이트는 **데이터 링크 수정만 반영**하며 Android KR12.4 전체 엔진 대응을 의미하지 않습니다.
+          별도 APK 빌드/서명/16 KiB 검증이 필요합니다.
+
+          SHA·ESP/TOP·ZIP 원본 고정 비교와 91개 INFO.NAME/3개 TOP 별칭 변경 및 다른 모든 레코드·문자열 불변 검사를 통과한 데이터만 릴리스합니다.
+          Android 기기에서의 전체 퀘스트 진행 및 클릭 가능성은 아직 검증하지 않았습니다.
+          원본 Morrowind 게임 데이터는 포함되지 않습니다.
+          EOF
+          gh release create "$TAG" \
+            "output/$OUTPUT" "output/$OUTPUT.sha256" \
+            output/KR12.4-Android-Data-verification.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --title 'OpenMW Android KR12.4 — 한국어 데이터 업데이트 (APK 별도)' \
+            --notes-file release-notes.md --target "$GITHUB_SHA" --latest=false
