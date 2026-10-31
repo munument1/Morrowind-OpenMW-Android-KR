@@ -1,0 +1,61 @@
+name: Verify Android KR12.2 quest-data parity
+on:
+  push:
+    branches: [feature/android-kr12-2-topic-port]
+    paths:
+      - .github/workflows/verify-kr12-2-android-data.yml
+      - ci/patch_kr12_quest_entry_topics.py
+      - ci/rebuild_android_kr12_2_quest_data.py
+  pull_request:
+    paths:
+      - .github/workflows/verify-kr12-2-android-data.yml
+      - ci/patch_kr12_quest_entry_topics.py
+      - ci/rebuild_android_kr12_2_quest_data.py
+permissions:
+  contents: read
+jobs:
+  verify-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: android-korean-0.51.0-12-kr12.1-permanent
+      SOURCE: OpenMW-Android-0.51.0-12-Korean-Data-KR12.1.zip
+      TARGET: OpenMW-Android-0.51.0-12-Korean-Data-KR12.2.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check and fetch pinned Android KR12.1 data
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/patch_kr12_quest_entry_topics.py ci/rebuild_android_kr12_2_quest_data.py
+          mkdir -p input output
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$SOURCE" --dir input
+          echo 'f00cf86fc0083377cdabab5deb3929204f01686d6814be5de5b037cd0848c4ee  input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.1.zip' | sha256sum -c -
+      - name: Verify exactly four quest-topic text changes and all other data preserved
+        run: |
+          set -euo pipefail
+          python3 ci/rebuild_android_kr12_2_quest_data.py --source "input/$SOURCE" --output "output/$TARGET" --report output/verification.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('output/verification.json').read_text())
+          assert p['changed_info_count']==4
+          assert len(p['changed_INFO_inam'])==4
+          assert all(x['visible_text_unchanged'] for x in p['changes'])
+          assert p['all_other_records_and_fields_unchanged'] is True
+          assert p['unchanged_android_zip_members_byte_identical'] is True
+          assert p['modified_quest_selectors_or_scripts'] is False
+          PY
+          unzip -tq "output/$TARGET"
+          (cd output && sha256sum "$TARGET" > "$TARGET.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KR12.2-Android-data-parity-candidate
+          path: |
+            output/verification.json
+            output/*.sha256
+          if-no-files-found: error
+          retention-days: 20
