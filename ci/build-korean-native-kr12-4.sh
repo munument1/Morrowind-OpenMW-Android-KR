@@ -90,6 +90,7 @@ KR12_4_ENGINE_COMMIT='e677c70d7a81f2033ee6f6ace4fac4533c4211b5'
 KR12_4_PREDICATE_BLOB='710a0c1320c8aef66a88732a21e67392777bafbb'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0016-korean-predicative-topic-boundaries.patch?ref=$KR12_4_ENGINE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0016-korean-predicative-topic-boundaries.patch"
 test "$(git hash-object "$DEST/0016-korean-predicative-topic-boundaries.patch")" = "$KR12_4_PREDICATE_BLOB"
+cp ci/apply-kr12-4-predicative-topic.py "$DEST/apply-kr12-4-predicative-topic.py"
 
 printf '%s\n' \
   "$KOREAN_ENGINE_REPO@$KOREAN_ENGINE_COMMIT" \
@@ -147,7 +148,7 @@ replacement = '''        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/app
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0013-korean-spell-duration-order.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0014-korean-quotative-topic-boundaries.patch &&
         patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0015-korean-contextual-noun-topic-endings.patch &&
-        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0016-korean-predicative-topic-boundaries.patch
+        python3 ${CMAKE_SOURCE_DIR}/patches/kr-origin/apply-kr12-4-predicative-topic.py <SOURCE_DIR> ${CMAKE_SOURCE_DIR}/patches/kr-origin/0016-korean-predicative-topic-boundaries.patch
 )'''
 if 'patches/kr-origin/0001-cjk-topic-discovery.patch' not in text:
     if needle not in text:
@@ -176,6 +177,7 @@ grep -Fq 'patches/kr-origin/0013-korean-spell-duration-order.patch' source/build
 grep -Fq 'patches/kr-origin/0014-korean-quotative-topic-boundaries.patch' source/buildscripts/CMakeLists.txt
 grep -Fq 'patches/kr-origin/0015-korean-contextual-noun-topic-endings.patch' source/buildscripts/CMakeLists.txt
 grep -Fq 'patches/kr-origin/0016-korean-predicative-topic-boundaries.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'apply-kr12-4-predicative-topic.py' source/buildscripts/CMakeLists.txt
 grep -Fq -- '-Wl,-z,max-page-size=16384' source/buildscripts/build.sh
 grep -Fq -- '-Wl,-z,common-page-size=16384' source/buildscripts/build.sh
 
