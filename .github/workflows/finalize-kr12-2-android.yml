@@ -1,0 +1,174 @@
+name: Finalize Android KR12.2 from independently verified signed build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/finalize-kr12-2-android.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: android-kr12-2-signed-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      VERIFIED_RUN: '41168444998'
+      VERIFIED_COMMIT: '1e1ea44be06f7600f40c3a86b6d33a959559dd0f'
+      TAG: android-korean-0.51.0-12-kr12.2-permanent
+      BASE_TAG: android-korean-0.51.0-12-kr12.1-permanent
+      BASE_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.1.zip
+      FINAL_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.2.zip
+      FINAL_APK: OpenMW-Android-0.51.0-12-Korean-KR12.2-Permanent-16K.apk
+      SIGNER_SHA: ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Reject duplicate release, and require exact successful signed source build
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::KR12.2 release already exists. Never overwrite it."
+            exit 1
+          fi
+          gh api "repos/$REPO/actions/runs/$VERIFIED_RUN" > "$RUNNER_TEMP/run.json"
+          gh api "repos/$REPO/actions/runs/$VERIFIED_RUN/jobs?per_page=100" > "$RUNNER_TEMP/jobs.json"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          t=Path(os.environ["RUNNER_TEMP"])
+          run=json.loads((t/"run.json").read_text())
+          jobs=json.loads((t/"jobs.json").read_text())["jobs"]
+          assert run["head_sha"]==os.environ["VERIFIED_COMMIT"]
+          assert run["head_branch"]=="main"
+          assert run["event"]=="push"
+          assert run["name"]=="Build and publish Android KR12.2 (GitHub only)"
+          assert any(j["name"]=="native-and-apk" and j["conclusion"]=="success" for j in jobs)
+          assert run["conclusion"]=="failure", "Expected solely the artifact-layout finalization failure"
+          print("Exact native build, release signing and 16 KiB checks previously succeeded")
+          PY
+          git cat-file -e "$VERIFIED_COMMIT^{commit}"
+
+      - name: Retrieve signed APK from that successful native job
+        run: |
+          set -euo pipefail
+          mkdir -p downloaded output
+          gh run download "$VERIFIED_RUN" -n 'Android-KR12.2-Signed-Verified' -D downloaded
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          src=Path("downloaded"); dest=Path("output")
+          apk=os.environ["FINAL_APK"]
+          required=(
+              apk, apk+".sha256", "korean-origin.txt", "libopenmw.so.sha256",
+              "kr12-certificate.txt", "kr12-badging.txt", "16k-verification.txt",
+          )
+          for name in required:
+              found=[p for p in src.rglob(name) if p.is_file() and p.name==name]
+              if len(found)!=1:
+                  raise SystemExit(f"Expected exactly one signed artifact member {name}; found {len(found)}")
+              (dest/name).write_bytes(found[0].read_bytes())
+              print("Recovered",str(found[0]),"as",str(dest/name))
+          PY
+
+      - name: Rebuild the four quest-topic corrections from hash-pinned KR12.1 data
+        run: |
+          set -euo pipefail
+          mkdir -p source
+          gh release download "$BASE_TAG" --pattern "$BASE_DATA" --dir source
+          python3 ci/rebuild_android_kr12_2_quest_data.py \
+            --source "source/$BASE_DATA" --output "output/$FINAL_DATA" \
+            --report output/KR12.2-Android-Data-verification.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open("output/KR12.2-Android-Data-verification.json"))
+          assert p["source_esp_sha256"]=="0f04a21d69ecae16a1c2ae3bb0b739ac4e71cdb59054c809fc844128e2c12327"
+          assert p["candidate_esp_sha256"]=="c0cb2f5702da067e11820e5a11ffb4b758ea28e101779fc43a721072783ed253"
+          assert p["changed_info_count"]==4 and len(p["changes"])==4
+          assert all(e["visible_text_unchanged"] for e in p["changes"])
+          assert p["all_other_records_and_fields_unchanged"] is True
+          assert p["unchanged_android_zip_members_byte_identical"] is True
+          assert p["modified_quest_selectors_or_scripts"] is False
+          PY
+          (cd output && sha256sum "$FINAL_DATA" > "$FINAL_DATA.sha256")
+
+      - name: Independently verify APK, signer, hashes, version, and 16KiB alignment
+        run: |
+          set -euo pipefail
+          test -s "output/$FINAL_APK"
+          (cd output && sha256sum -c "$FINAL_APK.sha256" && sha256sum -c "$FINAL_DATA.sha256")
+          unzip -tq "output/$FINAL_APK"
+          unzip -tq "output/$FINAL_DATA"
+          grep -Fx 'kr12_3_topic_commit=7456a7971481b8350069364c36d4407a87bc4c8c' output/korean-origin.txt
+          grep -Fx 'quotative_topic_patch=7413caa366f7c00c654cbb44d6a789c8e2a8db6c' output/korean-origin.txt
+          grep -Fx 'noun_topic_patch=1f402a0db93c8d01ca123edfe528ae411cc825c1' output/korean-origin.txt
+          grep -Fx 'spell_duration_order=325eaf142f727ef1d95e145b3caf8693c53eebd5' output/korean-origin.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $SIGNER_SHA" output/kr12-certificate.txt
+          grep -F "versionCode='5116'" output/kr12-badging.txt
+          grep -F "versionName='0.51.0-12-KR12.2'" output/kr12-badging.txt
+          grep -F "name='com.ast.openmw.korean'" output/kr12-badging.txt
+          test "$(unzip -p "output/$FINAL_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')" = "$(awk 'NR==1 {print $1}' output/libopenmw.so.sha256)"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "output/$FINAL_APK" > "$RUNNER_TEMP/verified-signer.txt"
+          grep -Fi "Signer #1 certificate SHA-256 digest: $SIGNER_SHA" "$RUNNER_TEMP/verified-signer.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "output/$FINAL_APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "output/$FINAL_APK" > "$RUNNER_TEMP/independent-badging.txt"
+          grep -F "versionCode='5116'" "$RUNNER_TEMP/independent-badging.txt"
+          grep -F "versionName='0.51.0-12-KR12.2'" "$RUNNER_TEMP/independent-badging.txt"
+          grep -F "name='com.ast.openmw.korean'" "$RUNNER_TEMP/independent-badging.txt"
+          if grep -Fq 'application-debuggable' "$RUNNER_TEMP/independent-badging.txt"; then
+            echo "::error::Debuggable Android candidate cannot be published"
+            exit 1
+          fi
+          grep -F 'required_min_load_align=0x4000' output/16k-verification.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR12.2-Final-Publication-Evidence
+          path: |
+            output/KR12.2-Android-Data-verification.json
+            output/*.sha256
+            output/korean-origin.txt
+            output/kr12-certificate.txt
+            output/16k-verification.txt
+          if-no-files-found: error
+
+      - name: Publish verified Android KR12.2 to GitHub Releases only
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Concurrent KR12.2 release exists; refusing overwrite"
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR12.2
+          - Android 0.51.0-12 ARM64 Korean build, signed with the same permanent release certificate as KR12.1 (versionCode 5116).
+          - Ported Windows KR12.3 Korean quotative/contextual topic boundaries and four source-verified dialogue topic tags (Vas, Ienith, Blades promotion, Bloodmoon decision).
+          - Preserved Android KR12.1 Korean spell labels, Firemoth cell aliases, subtitle timing, fonts and Daedric glyph support.
+          - Native compile, package signing, app identity, 16 KiB alignment and targeted data/record parity were verified in CI.
+          - Android physical-device gameplay and complete quest progression have not been independently verified.
+
+          **Download both the APK and KR12.2 Korean data ZIP.** Original Morrowind game files are required. Android builds are distributed through GitHub Releases, not Nexus Mods.
+          EOF
+          gh release create "$TAG" \
+            "output/$FINAL_APK" "output/$FINAL_APK.sha256" \
+            "output/$FINAL_DATA" "output/$FINAL_DATA.sha256" \
+            output/KR12.2-Android-Data-verification.json \
+            output/korean-origin.txt output/kr12-certificate.txt \
+            output/libopenmw.so.sha256 output/16k-verification.txt \
+            --title 'OpenMW Android 0.51.0-12 Korean KR12.2 — signed update' \
+            --notes-file release-notes.md --target "$VERIFIED_COMMIT" --latest
