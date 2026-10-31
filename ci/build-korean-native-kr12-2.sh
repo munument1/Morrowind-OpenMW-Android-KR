@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OPENMW_COMMIT='f4bec41444214a7903bebd178389ca22ca13f646'
+UPSTREAM_REPO='Andiweli/OpenMW-Android'
+UPSTREAM_TAG='0.51.0-11'
+UPSTREAM_APK='OpenMW.0.51-11.apk'
+UPSTREAM_APK_SHA256='c0ea41c9f862d95c10796909d3b0edef6f401d5ac92ce9dd3bf92f967f32ee07'
+KOREAN_ENGINE_REPO='munument1/-KR-openmw'
+KOREAN_ENGINE_COMMIT='4907c7d63c3d93f92439c0656a92dae7fc618ec6'
+KOREAN_TOPIC_BLOB='4d5e8e5d72ed944fd3286615d9d50f04f2ff97b6'
+KOREAN_SIDECAR_BLOB='b83eaf76d1047757214711fbd0074a03876bf6de'
+KOREAN_ESM_BLOB='aa5c3e5dd74cab31aa1c17aad01a232bf057e727'
+KOREAN_JOURNAL_BLOB='ea8eb469f5423a0f74ace780e55e7693dc1527a9'
+KOREAN_VIDEO_BLOB='7b26525f3df8d6b692fd9361daa42b57d286b33d'
+KOREAN_JOURNAL_KEYWORDS_BLOB='30c11ee6c71149f6173b1c25f4ff46aca101774a'
+KOREAN_JOURNAL_INDEX_BLOB='6adffda1f38472d730e845e87427a23935b15aa6'
+KR12_ENGINE_REPO='munument1/Morrowind-OpenMW-KR'
+KR9_BOUNDARIES_COMMIT='6c0a6ec51ee147b65da9a2deb930984cb52a7cd3'
+KR12_BOUNDARIES_BLOB='3a2498b52b6ca7358a92ef9a846f462867a323e4'
+KR10_ENGINE_COMMIT='22410f633d4de10aaeb8345238a15d45a7f24ca3'
+NDK_PACKAGE='27.3.13750724'
+JOBS="${JOBS:-4}"
+PAGE_LDFLAGS='-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384'
+
+DEST='source/buildscripts/patches/kr-origin'
+OUTDIR='native-artifacts'
+LOG="$OUTDIR/korean-native-build.log"
+LIBOUT="$OUTDIR/libs"
+mkdir -p "$DEST" "$OUTDIR" "$LIBOUT" work/upstream
+rm -f "$OUTDIR/libopenmw.so" "$OUTDIR/libopenmw.so.sha256" "$OUTDIR/page-size-report.txt" "$LOG"
+rm -f "$LIBOUT"/*.so
+
+fetch_patch() {
+  local src="$1" dst="$2" expected="$3"
+  gh api "repos/$KOREAN_ENGINE_REPO/contents/$src?ref=$KOREAN_ENGINE_COMMIT" --jq '.content' \
+    | base64 --decode > "$dst"
+  test -s "$dst"
+  test "$(git hash-object "$dst")" = "$expected"
+}
+
+fetch_patch 'korean/patches/0001-cjk-topic-discovery.patch' "$DEST/0001-cjk-topic-discovery.patch" "$KOREAN_TOPIC_BLOB"
+fetch_patch 'korean/patches/0002-utf8-bom-sidecars.patch' "$DEST/0002-utf8-bom-sidecars.patch" "$KOREAN_SIDECAR_BLOB"
+fetch_patch 'korean/patches/0003-mixed-utf8-esm-reader.patch' "$DEST/0003-mixed-utf8-esm-reader.patch" "$KOREAN_ESM_BLOB"
+fetch_patch 'korean/patches/0004-legacy-korean-journal-recovery.patch' "$DEST/0004-legacy-korean-journal-recovery.patch" "$KOREAN_JOURNAL_BLOB"
+fetch_patch 'korean/patches/0005-video-subtitles.patch' "$DEST/0005-video-subtitles.patch" "$KOREAN_VIDEO_BLOB"
+fetch_patch 'korean/patches/0006-journal-topic-keywords.patch' "$DEST/0006-journal-topic-keywords.patch" "$KOREAN_JOURNAL_KEYWORDS_BLOB"
+fetch_patch 'korean/patches/0007-korean-journal-index.patch' "$DEST/0007-korean-journal-index.patch" "$KOREAN_JOURNAL_INDEX_BLOB"
+# KR12's new topic display boundary patch is pinned to the merged Windows build.
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0008-korean-implicit-topic-boundaries.patch?ref=$KR9_BOUNDARIES_COMMIT" --jq '.content' \
+  | base64 --decode > "$DEST/0008-korean-implicit-topic-boundaries.patch"
+test "$(git hash-object "$DEST/0008-korean-implicit-topic-boundaries.patch")" = "$KR12_BOUNDARIES_BLOB"
+
+for spec in '0009-korean-honorific-particle.patch:103e64ca1e5e63d8a08e516e0f21ede004ea516a' '0010-legacy-korean-topic-recovery.patch:1f31cccb299d8fd3b8895fcd0523775207c3355c'; do
+  name="${spec%%:*}"; expected="${spec##*:}"
+  gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/$name?ref=$KR10_ENGINE_COMMIT" --jq '.content' | base64 --decode > "$DEST/$name"
+  test "$(git hash-object "$DEST/$name")" = "$expected"
+done
+
+
+KR12_ENGINE_COMMIT='4a8ca4a437ee6de8a99b23c51402550979c63295'
+KR12_TOPIC_LINK_BLOB='1f40a0952d193b4ba68cb4f6ffa08091233353f8'
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0011-korean-topic-discovery-and-work-links.patch?ref=$KR12_ENGINE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0011-korean-topic-discovery-and-work-links.patch"
+test "$(git hash-object "$DEST/0011-korean-topic-discovery-and-work-links.patch")" = "$KR12_TOPIC_LINK_BLOB"
+
+
+KR12_SUBTITLE_COMMIT='3d974fcdb473b248cf729a5b8bd873797e9bd18e'
+KR12_SUBTITLE_BLOB='9ccc477acf8488bf3b93e5b64b897ddb8a7f52af'
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0012-voice-synchronized-subtitles.patch?ref=$KR12_SUBTITLE_COMMIT" --jq '.content' | base64 --decode > "$DEST/0012-voice-synchronized-subtitles.patch"
+test "$(git hash-object "$DEST/0012-voice-synchronized-subtitles.patch")" = "$KR12_SUBTITLE_BLOB"
+
+# Restore natural Korean "30초 동안" order in native spell-effect widgets.
+KR12_DURATION_COMMIT='083d73fb8207986a062d843f2b4e5f5503673925'
+KR12_DURATION_BLOB='325eaf142f727ef1d95e145b3caf8693c53eebd5'
+gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0013-korean-spell-duration-order.patch?ref=$KR12_DURATION_COMMIT" --jq '.content' \
+  | base64 --decode > "$DEST/0013-korean-spell-duration-order.patch"
+test "$(git hash-object "$DEST/0013-korean-spell-duration-order.patch")" = "$KR12_DURATION_BLOB"
+
+
+KR12_3_ENGINE_COMMIT='7456a7971481b8350069364c36d4407a87bc4c8c'
+KR12_3_QUOTATIVE_BLOB='7413caa366f7c00c654cbb44d6a789c8e2a8db6c'
+KR12_3_NOUN_BLOB='1f402a0db93c8d01ca123edfe528ae411cc825c1'
+for spec in '0014-korean-quotative-topic-boundaries.patch:7413caa366f7c00c654cbb44d6a789c8e2a8db6c' '0015-korean-contextual-noun-topic-endings.patch:1f402a0db93c8d01ca123edfe528ae411cc825c1'; do
+  name="${spec%%:*}"; expected="${spec##*:}"
+  gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/$name?ref=$KR12_3_ENGINE_COMMIT" --jq '.content' | base64 --decode > "$DEST/$name"
+  test "$(git hash-object "$DEST/$name")" = "$expected"
+done
+
+printf '%s\n' \
+  "$KOREAN_ENGINE_REPO@$KOREAN_ENGINE_COMMIT" \
+  "topic=$KOREAN_TOPIC_BLOB" \
+  "sidecar=$KOREAN_SIDECAR_BLOB" \
+  "esm=$KOREAN_ESM_BLOB" \
+  "journal=$KOREAN_JOURNAL_BLOB" \
+  "video=$KOREAN_VIDEO_BLOB" \
+  "journal_keywords=$KOREAN_JOURNAL_KEYWORDS_BLOB" \
+  "journal_index=$KOREAN_JOURNAL_INDEX_BLOB" \
+  "korean_topic_boundaries=$KR12_BOUNDARIES_BLOB" \
+  "kr9_engine=$KR12_ENGINE_REPO@$KR9_BOUNDARIES_COMMIT" \
+  "kr10_engine=$KR12_ENGINE_REPO@$KR10_ENGINE_COMMIT" \
+  "korean_honorific=103e64ca1e5e63d8a08e516e0f21ede004ea516a" \
+  "legacy_topic_recovery=1f31cccb299d8fd3b8895fcd0523775207c3355c" \
+  "kr12_engine=$KR12_ENGINE_REPO@$KR12_ENGINE_COMMIT" \
+  "topic_link_fix=$KR12_TOPIC_LINK_BLOB" \
+  "voice_subtitle_sync=$KR12_SUBTITLE_BLOB" \
+  "subtitle_engine=$KR12_ENGINE_REPO@$KR12_SUBTITLE_COMMIT" \
+  "spell_duration_engine=$KR12_ENGINE_REPO@$KR12_DURATION_COMMIT" \
+  "spell_duration_order=$KR12_DURATION_BLOB" \
+  "kr12_3_topic_commit=$KR12_3_ENGINE_COMMIT" \
+  "quotative_topic_patch=$KR12_3_QUOTATIVE_BLOB" \
+  "noun_topic_patch=$KR12_3_NOUN_BLOB" \
+  "ndk=$NDK_PACKAGE" \
+  "page_ldflags=$PAGE_LDFLAGS" > "$OUTDIR/korean-origin.txt"
+
+gh release download "$UPSTREAM_TAG" --repo "$UPSTREAM_REPO" --pattern "$UPSTREAM_APK" --dir work/upstream --clobber
+BASE_APK="work/upstream/$UPSTREAM_APK"
+test "$(sha256sum "$BASE_APK" | awk '{print $1}')" = "$UPSTREAM_APK_SHA256"
+OFFICIAL_SHA="$(unzip -p "$BASE_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')"
+printf '%s\n' "$OFFICIAL_SHA" > "$OUTDIR/upstream-libopenmw.sha256"
+
+python3 - <<'PY'
+from pathlib import Path
+
+cmake = Path('source/buildscripts/CMakeLists.txt')
+text = cmake.read_text(encoding='utf-8')
+needle = '        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup4.py <SOURCE_DIR>\n)'
+replacement = '''        python3 ${CMAKE_SOURCE_DIR}/patches/openmw051-final/apply-android-graphics-followup4.py <SOURCE_DIR> &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0001-cjk-topic-discovery.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0002-utf8-bom-sidecars.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0003-mixed-utf8-esm-reader.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0004-legacy-korean-journal-recovery.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0005-video-subtitles.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0006-journal-topic-keywords.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0007-korean-journal-index.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0008-korean-implicit-topic-boundaries.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0009-korean-honorific-particle.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0010-legacy-korean-topic-recovery.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0011-korean-topic-discovery-and-work-links.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0012-voice-synchronized-subtitles.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0013-korean-spell-duration-order.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0014-korean-quotative-topic-boundaries.patch &&
+        patch -d <SOURCE_DIR> -p1 -t -N < ${CMAKE_SOURCE_DIR}/patches/kr-origin/0015-korean-contextual-noun-topic-endings.patch
+)'''
+if 'patches/kr-origin/0001-cjk-topic-discovery.patch' not in text:
+    if needle not in text:
+        raise SystemExit('official 0.51.0-11 OpenMW patch-chain tail not found')
+    text = text.replace(needle, replacement, 1)
+cmake.write_text(text, encoding='utf-8')
+
+build = Path('source/buildscripts/build.sh')
+b = build.read_text(encoding='utf-8')
+old = 'LDFLAGS="-fPIC -Wl,--undefined-version"'
+new = 'LDFLAGS="-fPIC -Wl,--undefined-version -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"'
+if new not in b:
+    if old not in b:
+        raise SystemExit('build.sh LDFLAGS anchor not found')
+    b = b.replace(old, new, 1)
+build.write_text(b, encoding='utf-8')
+PY
+
+grep -Fq "set(OPENMW_VERSION $OPENMW_COMMIT)" source/buildscripts/CMakeLists.txt
+grep -Fq 'apply-android-graphics-followup4.py' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0005-video-subtitles.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0006-journal-topic-keywords.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0007-korean-journal-index.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0008-korean-implicit-topic-boundaries.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0013-korean-spell-duration-order.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0014-korean-quotative-topic-boundaries.patch' source/buildscripts/CMakeLists.txt
+grep -Fq 'patches/kr-origin/0015-korean-contextual-noun-topic-endings.patch' source/buildscripts/CMakeLists.txt
+grep -Fq -- '-Wl,-z,max-page-size=16384' source/buildscripts/build.sh
+grep -Fq -- '-Wl,-z,common-page-size=16384' source/buildscripts/build.sh
+
+NDK_ROOT="${ANDROID_HOME:?ANDROID_HOME is required}/ndk/$NDK_PACKAGE"
+test -x "$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+rm -rf source/buildscripts/toolchain/ndk source/buildscripts/toolchain/arm64
+mkdir -p source/buildscripts/toolchain source/buildscripts/downloads
+ln -s "$NDK_ROOT" source/buildscripts/toolchain/ndk
+: > source/buildscripts/downloads/ndk-r26b.zip
+
+rm -rf source/buildscripts/build/arm64/openmw-prefix
+set +e
+(
+  cd source/buildscripts
+  find . -type f -name '*.sh' -exec chmod +x {} +
+  set -o pipefail
+  ./build.sh --arch arm64 --jobs "$JOBS" 2>&1 | tee "../../$LOG"
+)
+BUILD_RC=$?
+set -e
+
+JNI_DIR='source/app/src/main/jniLibs/arm64-v8a'
+JNI="$JNI_DIR/libopenmw.so"
+SRC='source/buildscripts/build/arm64/openmw-prefix/src/openmw'
+READELF="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+
+echo "native_build_exit_code=$BUILD_RC" >> "$OUTDIR/korean-origin.txt"
+
+if [[ -s "$JNI" ]]; then
+  cp "$JNI" "$OUTDIR/libopenmw.so"
+  sha256sum "$OUTDIR/libopenmw.so" | tee "$OUTDIR/libopenmw.so.sha256"
+
+  for so in "$JNI_DIR"/*.so; do cp "$so" "$LIBOUT/$(basename "$so")"; done
+  set -x
+  grep -Fq 'parseHyperText(text, mTranslationDataStorage, true)' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
+  grep -Fq 'static_cast<unsigned char>(*i) < 0xe0' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq 'hasKoreanDisplayBoundary(current->mKeyword' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq '"께서는"' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq 'decodeLegacyKoreanTopic' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
+  grep -Fq 'decodeLegacyKoreanTopic' "$SRC/apps/openmw/mwdialogue/journalimp.cpp"
+  grep -Fq '"이군"' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq 'utf8BomMode ? std::string_view(line)' "$SRC/components/translation/translation.cpp"
+  grep -Fq 'if (isValidUtf8WithHangul(raw))' "$SRC/components/esm3/esmreader.cpp"
+  grep -Fq 'recoverLegacyKoreanJournalText' "$SRC/apps/openmw/mwdialogue/journalentry.cpp"
+  grep -Fq 'decodeLegacyKoreanName(actorName)' "$SRC/apps/openmw/mwdialogue/journalentry.cpp"
+  grep -Fq 'MWGui::koreanJournalInitials' "$SRC/apps/openmw/mwgui/journalwindow.cpp"
+  grep -Fq 'reconcileKoreanTopicMarkup' "$SRC/apps/openmw/mwgui/journalviewmodel.cpp"
+  grep -Fq 'loadSubtitles(video);' "$SRC/apps/openmw/mwgui/videowidget.cpp"
+  grep -Fq 'isSaySoundPlaying' "$SRC/apps/openmw/mwgui/messagebox.cpp"
+  grep -Fq 'voiceSubtitle(info->mResponse' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
+  grep -Fq 'durationMarker == "동안" || durationMarker == "지속:"' "$SRC/apps/openmw/mwgui/widgets.cpp"
+  grep -Fq 'spellLine += " 동안";' "$SRC/apps/openmw/mwgui/widgets.cpp"
+  grep -Fq '"라는", "이라는", "란", "이란"' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq 'contextualNounEndings[]' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  grep -Fq 'keyword.size() == 3' "$SRC/apps/openmw/mwdialogue/keywordsearch.cpp"
+  set +x
+fi
+
+ALIGN_FAIL=0
+{
+  echo "upstream_tag=$UPSTREAM_TAG"
+  echo "ndk_package=$NDK_PACKAGE"
+  echo "required_min_load_align=0x4000"
+  if compgen -G "$JNI_DIR/*.so" >/dev/null; then
+    for so in "$JNI_DIR"/*.so; do
+      name="$(basename "$so")"
+      cp "$so" "$LIBOUT/$name"
+      min=''
+      while read -r align; do
+        [[ -n "$align" ]] || continue
+        if [[ -z "$min" ]] || (( align < min )); then
+          min="$align"
+        fi
+      done < <("$READELF" -lW "$so" | awk '$1=="LOAD" {print $NF}')
+      min="${min:-0}"
+      printf '%s_min_load_align=0x%x\n' "$name" "$min"
+      if (( min < 0x4000 )); then
+        ALIGN_FAIL=1
+      fi
+    done
+  fi
+} | tee "$OUTDIR/page-size-report.txt"
+
+if [[ $BUILD_RC -ne 0 ]]; then
+  echo "KR12 Native build failed with exit code $BUILD_RC" >&2
+  exit "$BUILD_RC"
+fi
+
+test -s "$OUTDIR/libopenmw.so"
+test "$(sha256sum "$OUTDIR/libopenmw.so" | awk '{print $1}')" != "$OFFICIAL_SHA"
+if [[ $ALIGN_FAIL -ne 0 ]]; then
+  echo 'One or more packaged shared libraries are below 16 KiB ELF LOAD alignment.' >&2
+  exit 1
+fi
+
+echo 'Korean native runtime built with patches 0001-0015 and 16 KiB ELF alignment.'

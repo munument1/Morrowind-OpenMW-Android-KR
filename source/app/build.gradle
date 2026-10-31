@@ -8,8 +8,8 @@ apply plugin: 'kotlin-android'
  * calibrated OMWFX chain together behind one build-time verification gate.
  */
 
-def openMwVersionCode = 5115
-def openMwAndroidVersionName = '0.51.0-12-KR12.1'
+def openMwVersionCode = 5116
+def openMwAndroidVersionName = '0.51.0-12-KR12.2'
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
