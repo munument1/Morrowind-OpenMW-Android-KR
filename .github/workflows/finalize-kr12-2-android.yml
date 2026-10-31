@@ -59,7 +59,7 @@ jobs:
           assert run["conclusion"]=="failure", "Expected solely the artifact-layout finalization failure"
           print("Exact native build, release signing and 16 KiB checks previously succeeded")
           PY
-          git cat-file -e "$VERIFIED_COMMIT^{commit}"
+          # GitHub Actions uses a shallow checkout; commit provenance is checked above via the GitHub API.
 
       - name: Retrieve signed APK from that successful native job
         run: |
