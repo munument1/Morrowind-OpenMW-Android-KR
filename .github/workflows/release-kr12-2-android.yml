@@ -187,7 +187,7 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: android-korean-0.51.0-12-kr12.1-permanent
+      TAG: android-korean-0.51.0-12-kr12.2-permanent
       BASE_TAG: android-korean-0.51.0-12-kr12.1-permanent
       BASE_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.1.zip
       FINAL_DATA: OpenMW-Android-0.51.0-12-Korean-Data-KR12.2.zip
