@@ -22,23 +22,27 @@
 
 목표는 upstream OpenMW 엔진과 최대한 가깝게 유지하면서 **Android 휴대기기, 태블릿 및 ChromeOS**에서 깔끔하고 컨트롤러 친화적인 Morrowind 환경을 제공하는 것입니다.
 
-## 🇰🇷 한국어 지원판 추가 사항
+## 🇰🇷 현재 한국어 배포 기준 — KR12.5 (2026-11-02)
 
-**최신 데이터는 [KR12.5 데이터 ZIP](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only)이며, APK는 아래 KR12.4 영구 서명판을 사용합니다.** 명시 토픽 태그 31개를 추가 교정한 데이터 전용 업데이트입니다. Android 파일은 이 저장소에서만 배포합니다.
+**최신 업데이트는 [Android KR12.5](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only)입니다.** 이번 버전은 한국어 데이터 교정이며, 검증된 KR12.4 영구 서명 APK와 KR12.5 전체 데이터 ZIP을 함께 사용합니다.
 
+| 구성 | 현재 사용 버전 | 다운로드 |
+|---|---|---|
+| Android 앱·네이티브 엔진 | KR12.4 / versionCode 5117 | [영구 서명 APK](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.4-permanent) |
+| 전체 한국어 번역 데이터 | KR12.5 | [최신 데이터 ZIP](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only) |
 
-최신 통합판은 **OpenMW Android 0.51.0-12 Korean KR12.4**입니다. 영구 서명 APK와 Windows KR12.4에 동기화한 전체 한국어 데이터를 함께 제공합니다(2026-11-02 배포).
+**설치:** 처음 설치하는 경우 위 KR12.4 APK를 설치한 뒤 KR12.5 데이터 ZIP을 적용하세요. KR12.4 APK를 이미 사용한다면 데이터 ZIP만 갱신하면 됩니다. 이전 KR12.2 APK는 같은 영구 서명으로 업데이트할 수 있습니다. 기존 데이터·설정·세이브를 백업하고 런처에서 한국어 ESP 활성화 여부를 확인하세요.
 
-- [**Android KR12.4 영구 서명 APK + 전체 한국어 데이터 다운로드**](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.4-permanent)
-- **설치:** KR12.4 APK를 설치하고 위의 KR12.5 전체 데이터 ZIP을 적용합니다. 이전 KR12.2 APK는 같은 서명으로 업데이트할 수 있습니다.
-- **KR12.4 데이터 수정:** INFO 대사 링크 91건, TOP 별칭 3건. Windows KR12.4와 ESP/TOP SHA-256이 동일하며 Android의 다른 번역 파일·폰트·자막은 보존했습니다.
-- **엔진 수정:** Windows KR12.4의 한국어 서술격·호격·동사 어미 토픽 경계 패치 `0016`을 Android ARM64 엔진에 적용했습니다. 네이티브 회귀, 영구 서명, versionCode 5117, 16KiB 정렬 및 데이터 무결성 검증을 통과했습니다.
-
-기존 데이터와 설정, 세이브를 백업한 뒤 런처에서 한국어 ESP 활성화 여부를 확인하세요. 실제 Android 기기에서 모든 NPC 대화와 퀘스트 진행을 검증한 것은 아닙니다.
-
+- **KR12.5 데이터 교정:** 대사 29개에서 잘못된 명시 토픽 태그 31개를 제거했습니다. 표시 한국어, 퀘스트 조건, 결과 스크립트 및 다른 ESP 필드는 보존했습니다.
+- **누적 교정:** KR12.4의 INFO 대사 링크 91건·TOP 별칭 3건 교정을 포함합니다.
+- **앱·엔진:** 기존 KR12.4 APK를 그대로 사용합니다. 한국어 엔진 패치 0001–0016, 영구 서명 및 16KiB 정렬을 유지하며, KR12.5 이름으로 APK를 새로 빌드한 것은 아닙니다.
 - APK: `OpenMW-Android-0.51.0-12-Korean-KR12.4-Permanent-16K.apk`
-- 최신 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip`
-- [배포 검증 실행](https://github.com/munument1/Morrowind-OpenMW-Android-KR/actions/runs/41320969468): 기존 검증된 서명 APK를 바이트 변경 없이 복구하여 게시했습니다. APK SHA-256은 `2fe081e40ea4a7e78c84557b827cf89ad83f5c04e85acd0e518d18f7900ae009`입니다.
+- 최신 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip`
+- [KR12.5 변경·설치 안내](docs/KR12.5-DATA-RELEASE.md) / [현재 배포 구성과 SHA-256](CURRENT_RELEASE.json)
+
+Android 배포 파일은 이 저장소에서 제공합니다. 실기기에서 모든 NPC 대화와 퀘스트 진행을 검증한 것은 아닙니다.
+
+### 이전 업데이트 내역
 
 KR12는 잘못된 대화·저널 하이퍼링크를 수정하고, Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 검토한 오연결과 이름 분절을 INFO 본문 468곳에서 고치고, 업무 의뢰 진입 링크를 보강합니다. 깨진 토지 증서 선택지 스크립트 1곳도 복구합니다. **로마 숫자 U+2160–U+217F** 범위와 원래 데이드릭 문자를 유지하며, TTF·자막·BOOK 데이터는 그대로입니다. **KR12.4 APK와 최신 KR12.5 데이터 ZIP을 함께 사용하세요.** 이전 릴리스는 보존합니다.
 

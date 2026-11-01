@@ -1,3 +1,5 @@
+> 현재 배포 기준은 [KR12.5](KR12.5-DATA-RELEASE.md)입니다. APK/엔진은 KR12.4(versionCode 5117), 번역 데이터는 KR12.5를 사용합니다. 아래 문서는 초기 KR12 네이티브 업데이트의 역사적 기록입니다. 최신 파일과 해시는 [CURRENT_RELEASE.json](../CURRENT_RELEASE.json)을 참조하세요.
+
 # Android KR12 native update
 
 KR12 adds Windows KR10 patches 0009 (honorific particles) and 0010 (validated

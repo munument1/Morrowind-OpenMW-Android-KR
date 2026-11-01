@@ -1,0 +1,21 @@
+{
+  "release_version": "KR12.5",
+  "latest_release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only",
+  "updated_date": "2026-11-02",
+  "update_type": "translation_data",
+  "apk": {
+    "version": "KR12.4",
+    "version_code": 5117,
+    "application_id": "com.ast.openmw.korean",
+    "release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.4-permanent",
+    "filename": "OpenMW-Android-0.51.0-12-Korean-KR12.4-Permanent-16K.apk",
+    "sha256": "2fe081e40ea4a7e78c84557b827cf89ad83f5c04e85acd0e518d18f7900ae009"
+  },
+  "data": {
+    "version": "KR12.5",
+    "release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only",
+    "filename": "OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip",
+    "sha256": "5f57f7a8d99d12105ca86202a2efe8aca0debb3aba3454b6bf42bf687c414634"
+  },
+  "gameplay_tested": false
+}
