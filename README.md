@@ -24,20 +24,23 @@
 
 ## 🇰🇷 한국어 지원판 추가 사항
 
+**최신 데이터는 [KR12.5 데이터 ZIP](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only)이며, APK는 아래 KR12.4 영구 서명판을 사용합니다.** 명시 토픽 태그 31개를 추가 교정한 데이터 전용 업데이트입니다. Android 파일은 이 저장소에서만 배포합니다.
+
+
 최신 통합판은 **OpenMW Android 0.51.0-12 Korean KR12.4**입니다. 영구 서명 APK와 Windows KR12.4에 동기화한 전체 한국어 데이터를 함께 제공합니다(2026-11-02 배포).
 
 - [**Android KR12.4 영구 서명 APK + 전체 한국어 데이터 다운로드**](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.4-permanent)
-- **설치:** 통합판의 KR12.4 APK와 KR12.4 전체 데이터 ZIP을 모두 설치합니다. 이전 KR12.2 APK는 같은 서명으로 업데이트할 수 있습니다.
+- **설치:** KR12.4 APK를 설치하고 위의 KR12.5 전체 데이터 ZIP을 적용합니다. 이전 KR12.2 APK는 같은 서명으로 업데이트할 수 있습니다.
 - **KR12.4 데이터 수정:** INFO 대사 링크 91건, TOP 별칭 3건. Windows KR12.4와 ESP/TOP SHA-256이 동일하며 Android의 다른 번역 파일·폰트·자막은 보존했습니다.
 - **엔진 수정:** Windows KR12.4의 한국어 서술격·호격·동사 어미 토픽 경계 패치 `0016`을 Android ARM64 엔진에 적용했습니다. 네이티브 회귀, 영구 서명, versionCode 5117, 16KiB 정렬 및 데이터 무결성 검증을 통과했습니다.
 
 기존 데이터와 설정, 세이브를 백업한 뒤 런처에서 한국어 ESP 활성화 여부를 확인하세요. 실제 Android 기기에서 모든 NPC 대화와 퀘스트 진행을 검증한 것은 아닙니다.
 
 - APK: `OpenMW-Android-0.51.0-12-Korean-KR12.4-Permanent-16K.apk`
-- 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.4.zip`
+- 최신 한국어 데이터: `OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip`
 - [배포 검증 실행](https://github.com/munument1/Morrowind-OpenMW-Android-KR/actions/runs/41320969468): 기존 검증된 서명 APK를 바이트 변경 없이 복구하여 게시했습니다. APK SHA-256은 `2fe081e40ea4a7e78c84557b827cf89ad83f5c04e85acd0e518d18f7900ae009`입니다.
 
-KR12는 잘못된 대화·저널 하이퍼링크를 수정하고, Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 검토한 오연결과 이름 분절을 INFO 본문 468곳에서 고치고, 업무 의뢰 진입 링크를 보강합니다. 깨진 토지 증서 선택지 스크립트 1곳도 복구합니다. **로마 숫자 U+2160–U+217F** 범위와 원래 데이드릭 문자를 유지하며, TTF·자막·BOOK 데이터는 그대로입니다. **최신 KR12.4 APK와 데이터 ZIP을 함께 사용하세요.** 이전 릴리스는 보존합니다.
+KR12는 잘못된 대화·저널 하이퍼링크를 수정하고, Windows KR10의 **존칭 조사 처리와 구형 알려진 토픽·저널 토픽 복구**까지 Android 엔진에 이식합니다. 데이터 ZIP은 검토한 오연결과 이름 분절을 INFO 본문 468곳에서 고치고, 업무 의뢰 진입 링크를 보강합니다. 깨진 토지 증서 선택지 스크립트 1곳도 복구합니다. **로마 숫자 U+2160–U+217F** 범위와 원래 데이드릭 문자를 유지하며, TTF·자막·BOOK 데이터는 그대로입니다. **KR12.4 APK와 최신 KR12.5 데이터 ZIP을 함께 사용하세요.** 이전 릴리스는 보존합니다.
 
 **KR12.1 추가 교정:** 마법 효과 Light 표시를 `빛`으로 바로잡고 지속시간은 `지속: 30초`, 대상 구분은 `적용: 자신 / 접촉 / 대상`으로 정리했습니다. 드로'사카르 대화 연결과 Siege at Firemoth 내부 지명 10건도 수정했습니다. 기존 KR12의 음성 자막 및 한국어 토픽 수정은 계승합니다. 실제 Android 기기에서의 전체 플레이 검증은 아직 필요합니다.
 
