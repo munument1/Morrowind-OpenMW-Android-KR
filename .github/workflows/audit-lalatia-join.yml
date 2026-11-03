@@ -1,0 +1,103 @@
+name: Audit Lalatia Varian Imperial Cult join in published KR12.6 ESP
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/audit-lalatia-join.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download immutable Android KR12.6 data
+        run: |
+          set -euo pipefail
+          mkdir -p input output
+          gh release download android-korean-0.51.0-12-kr12.6-data-only --repo "$GITHUB_REPOSITORY" --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip' --dir input
+          echo 'a1c718740f740cd42fbc0650e54b5bc557aa0a74d40d5a85d95763a84ee7ad3c  input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip' | sha256sum -c -
+      - name: Scan raw records, sidecars, and dialogue/quest conditions
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,re,sys,zipfile
+          from pathlib import Path
+          sys.path.insert(0,'ci')
+          from patch_kr12_quest_entry_topics import chunks,fields,decoded
+          p=Path('input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip')
+          prefix='Morrowind_Korean_ReTranslation/Morrowind_Korean_ReTranslation.'
+          with zipfile.ZipFile(p) as z:
+              esp=z.read(prefix+'esp')
+              top=z.read(prefix+'top').decode('utf-8-sig')
+              mrk=z.read(prefix+'mrk').decode('utf-8-sig')
+          assert hashlib.sha256(esp).hexdigest()=='c52a5355752ef0be93fadeca9c95ca00d7cad808f713ce92a624a67d0cc277df'
+          def txt(f,k):
+              return f.get(k,b'').rstrip(b'\0').decode('utf-8',errors='replace')
+          def item(f,parent,kind,index):
+              data={
+               'index':index,'dial':parent,'dial_type':kind,'info':txt(f,b'INAM'),
+               'actor':txt(f,b'ONAM'),'faction':txt(f,b'FNAM'),
+               'class':txt(f,b'CNAM'),'race':txt(f,b'RNAM'),
+               'cell':txt(f,b'ANAM'),'result_script':txt(f,b'BNAM'),
+               'response':txt(f,b'NAME'),
+               'SCVR': [{'text':v.rstrip(b'\0').decode('cp1252',errors='replace'),'hex':v.hex()} for k,v in fields_map if k==b'SCVR']
+              }
+              return data
+          lalatia=[]; join=[]; greeting_candidates=[]; all_infos=0; dial_counts={}
+          parent=None;kind=None
+          for i,(tag,h,payload) in enumerate(chunks(esp,16)):
+              if tag==b'DIAL':
+                  f=dict(fields(payload));parent=txt(f,b'NAME')
+                  kind=f.get(b'DATA',b'\xff')[:1].hex()
+                  dial_counts[parent]=dial_counts.get(parent,0)+1
+              if tag!=b'INFO': continue
+              all_infos+=1
+              fields_map=fields(payload);f=dict(fields_map)
+              actor=txt(f,b'ONAM').casefold()
+              response=txt(f,b'NAME')
+              obj=None
+              if actor=='lalatia varian':
+                  obj=item(f,parent,kind,i);lalatia.append(obj)
+              if parent=='제국 교단에 가입':
+                  if obj is None: obj=item(f,parent,kind,i)
+                  join.append(obj)
+              if parent and parent.casefold().startswith('greeting') and (actor=='lalatia varian' or '제국 교단' in response or txt(f,b'FNAM').casefold()=='imperial cult'):
+                  if obj is None: obj=item(f,parent,kind,i)
+                  greeting_candidates.append(obj)
+          def sidecar(text,needle):
+              return [{'key':k,'value':v} for line in text.splitlines() if '\t' in line for k,v in [line.split('\t',1)] if needle in k or needle in v]
+          report={
+              'source_version':'Android KR12.6 identical Windows KR12.6 ESP/TOP',
+              'all_info_records':all_infos,
+              'lalatia_record_count':len(lalatia),
+              'lalatia_info_records':lalatia,
+              'imperial_cult_join_dial_count':len(join),
+              'imperial_cult_join_dial_records':join,
+              'greeting_related_count':len(greeting_candidates),
+              'greeting_related_records':greeting_candidates,
+              'top_matches':sidecar(top,'제국 교단'),
+              'mrk_matches':sidecar(mrk,'제국 교단'),
+              'analysis_limits':['Static TES3 inspection only; does not run Filter.search NPC state or save-state, other mods may override INFO.']
+          }
+          Path('output/lalatia_varian_kr126_audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          concise=[
+              {'dial':x['dial'],'info':x['info'],'actor':x['actor'],'faction':x['faction'],
+               'scvr':x['SCVR'],'response':x['response'],'script':x['result_script']} for x in lalatia
+          ]
+          print('LALATIA_TOTAL='+str(len(lalatia)))
+          print('LALATIA_INFO='+json.dumps(concise,ensure_ascii=False))
+          print('LALATIA_JOIN_COUNT='+str(len(join)))
+          print('LALATIA_GREETING_OTHER='+json.dumps([
+              {'dial':x['dial'],'info':x['info'],'actor':x['actor'],'faction':x['faction'],
+               'response':x['response'][:320]} for x in greeting_candidates if x['actor'].casefold()!='lalatia varian'
+          ],ensure_ascii=False))
+          print('LALATIA_SIDECARS='+json.dumps({'top':report['top_matches'],'mrk':report['mrk_matches']},ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lalatia-Varian-KR12.6-Diagnostic
+          path: output/lalatia_varian_kr126_audit.json
+          if-no-files-found: error
