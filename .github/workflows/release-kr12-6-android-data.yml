@@ -1,0 +1,115 @@
+name: Build verified Android KR12.6 data and audit Imperial Cult join topic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ci/package_android_kr12_6_data.py
+      - .github/workflows/release-kr12-6-android-data.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-kr126-data-only
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  ATAG: android-korean-0.51.0-12-kr12.5-data-only
+  AFILE: OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip
+  WTAG: openmw-0.51.0-kr12.6
+  WFILE: Morrowind-Korean-OpenMW-0.51.0-KR12.6-Full.zip
+  TAG: android-korean-0.51.0-12-kr12.6-data-only
+  OUTPUT: OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip
+  REPORT: KR12.6-Android-Data-and-Imperial-Cult-audit.json
+
+jobs:
+  verify-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify builder, pinned inputs, and immutable release target
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/package_android_kr12_6_data.py ci/patch_kr12_quest_entry_topics.py
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::KR12.6 data-only already published: refusing to overwrite"
+            exit 1
+          fi
+      - name: Fetch original Android KR12.5 data and exact Windows KR12.6 payload
+        run: |
+          set -euo pipefail
+          mkdir -p input output
+          gh release download "$ATAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$AFILE" --pattern "$AFILE.sha256" --dir input
+          gh release download "$WTAG" --repo munument1/Morrowind-OpenMW-KR \
+            --pattern "$WFILE" --pattern "$WFILE.sha256" --dir input
+          (cd input && sha256sum -c "$AFILE.sha256" && sha256sum -c "$WFILE.sha256")
+          echo "5f57f7a8d99d12105ca86202a2efe8aca0debb3aba3454b6bf42bf687c414634  input/$AFILE" | sha256sum -c -
+          echo "2f4bb6b9cfd5916fd9574b6207628e4bb16f8bdc4f1c68fc1ef7581c970989e9  input/$WFILE" | sha256sum -c -
+      - name: Build Android data and independently audit TES3 topic links
+        run: |
+          set -euo pipefail
+          python3 ci/package_android_kr12_6_data.py \
+            --android "input/$AFILE" --windows "input/$WFILE" \
+            --output "output/$OUTPUT" --report "output/$REPORT"
+          unzip -tq "output/$OUTPUT"
+          (cd output && sha256sum -c "$OUTPUT.sha256")
+          python3 - <<'PY'
+          import json, os
+          p='output/'+os.environ['REPORT']
+          d=json.load(open(p,encoding='utf-8'))
+          a=d['record_verification']
+          t=d['top_verification']
+          c=a['imperial_cult']
+          assert a['total_records']==48146 and a['changed_INFO_NAME']==230
+          assert a['all_other_TES3_fields_byte_identical'] and a['all_visible_Korean_unchanged']
+          assert t['original_entries']==5848 and t['new_entries']==5934
+          assert t['added_aliases']==86 and t['all_TOP_targets_exist_in_ESP']
+          assert c['dial_exists'] and len(c['previously_repaired_info'])==2
+          assert all(x['explicit_target_link'] for x in c['previously_repaired_info'])
+          assert d['other_android_zip_members_unchanged'] and not d['apk_rebuilt']
+          print('IMPERIAL_CULT_STATIC_QA_PASS: 2 known INFO links exist; gameplay reachability NOT verified')
+          PY
+      - name: Upload verified data and full Imperial Cult audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR12.6-DATA-ImperialCult-Audit
+          path: |
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip.sha256
+            output/KR12.6-Android-Data-and-Imperial-Cult-audit.json
+          if-no-files-found: error
+      - name: Publish verified Android KR12.6 DATA ONLY
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Existing release; refusing overwrite"
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## OpenMW Android KR12.6 — 한국어 데이터 전용
+
+          Android KR12.5 번역 ZIP에 Windows KR12.6의 한국어 ESP와 TOP만 정확히 반영한 누적 데이터 업데이트입니다.
+          **새 APK는 포함하지 않으며** 기존 [KR12.4 영구 서명 APK](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.4-permanent)를 그대로 사용합니다.
+
+          - INFO.NAME 230개 필드의 명시 토픽 링크 범위 교정(링크 256개)
+          - TOP의 기존 5,848개 매핑 불변, 숨김 구분 별칭 86개 추가
+          - ESP 48,146개 레코드, 비대상 필드, 대사 화면 표시 한국어, Android 번역 ZIP의 다른 파일 전부 불변 확인
+          - 제국 교단 가입 관련 기존 두 INFO와 링크 목표 DIAL을 읽기 전용으로 재검사한 JSON 보고서 동봉
+
+          **중요:** 자동 정적 QA 통과는 제국 교단 가입이 실제 NPC/퀘스트 단계에서 가능한지 증명하지 않습니다. 원본 영어 ESM 전체, 세이브 상태, 설치 모드 로드 순서, Android 실기기 진행은 미검증입니다. 이슈 #42는 미해결 상태입니다.
+
+          기존 데이터·세이브를 백업하고 Android 런처에서 한국어 ESP가 최종 사용되는지 확인하세요. 원본 상용 ESM과 새 APK는 이 ZIP에 포함하지 않습니다.
+          EOF
+          gh release create "$TAG" \
+            "output/$OUTPUT" "output/$OUTPUT.sha256" "output/$REPORT" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title 'OpenMW Android KR12.6 — 한국어 데이터 및 가입 토픽 정적 검수' \
+            --notes-file release-notes.md --target "$GITHUB_SHA" --latest=false
