@@ -1,0 +1,118 @@
+name: Verify Lalatia Varian join topic candidate with native OpenMW parser
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ci/patch_lalatia_imperial_cult_join.py
+      - .github/workflows/verify-lalatia-join-candidate.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: munument1/Morrowind-OpenMW-KR
+          path: engine
+      - name: Download pinned Android KR12.6 data for read-only analysis
+        run: |
+          set -euo pipefail
+          mkdir -p input/mod output
+          gh release download android-korean-0.51.0-12-kr12.6-data-only \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip' --dir input
+          echo 'a1c718740f740cd42fbc0650e54b5bc557aa0a74d40d5a85d95763a84ee7ad3c  input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip' | sha256sum -c -
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from pathlib import Path
+          p=Path('input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip')
+          stem='Morrowind_Korean_ReTranslation'
+          with ZipFile(p) as z:
+              for ext in ('.top','.mrk','.jrn','.cel'):
+                  name=stem+'/'+stem+ext
+                  dest=Path('input/mod')/(stem+ext)
+                  dest.write_bytes(z.read(name) if name in z.namelist() else b'')
+          PY
+      - name: Independently build and compare one-field INFO.NAME candidate
+        run: |
+          set -euo pipefail
+          python3 -m py_compile ci/patch_lalatia_imperial_cult_join.py
+          python3 ci/patch_lalatia_imperial_cult_join.py \
+            --source-zip input/OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip \
+            --output-esp output/Lalatia-Varian-KR12.6-join-CANDIDATE-NOT-RELEASED.esp \
+            --report output/lalatia_join_candidate_verification.json
+      - name: Compile the actual KR12.6 OpenMW Korean parser
+        run: |
+          set -euo pipefail
+          g++ -std=c++20 -O2 -Iengine -Iengine/apps/openmw/mwdialogue \
+            engine/packaging/korean/tooling/verify-journal-links.cpp \
+            engine/apps/openmw/mwdialogue/keywordsearch.cpp \
+            engine/components/translation/translation.cpp \
+            engine/components/files/collections.cpp \
+            engine/components/files/multidircollection.cpp \
+            engine/components/files/conversion.cpp \
+            engine/components/toutf8/toutf8.cpp \
+            engine/components/debug/debuglog.cpp \
+            -o /tmp/verify-lalatia-runtime
+      - name: Prove real OpenMW parser resolves Greeting to lay member but not untagged JOIN
+        run: |
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          def u(n): return struct.pack('<I',n)
+          def s(v):
+              raw=v.encode('utf-8')
+              return u(len(raw))+raw
+          topics=['평신도 회원','제국 교단에 가입']
+          cases=[
+              '@평신도가# 되기를 권합니다.',
+              '제국 교단에 가입하시겠습니까?',
+              '@제국 교단에 가입#하시겠습니까?',
+          ]
+          data=u(len(topics))+b''.join(s(t)+s('') for t in topics)+u(0)+u(len(cases))+b''.join(s(x) for x in cases)
+          Path('input/parser.bin').write_bytes(data)
+          PY
+          /tmp/verify-lalatia-runtime input/parser.bin output/parser-results.bin input/mod patched discovery
+          python3 - <<'PY'
+          import json,struct
+          from pathlib import Path
+          raw=Path('output/parser-results.bin').read_bytes()
+          pos=0
+          def u():
+              global pos
+              n=struct.unpack_from('<I',raw,pos)[0];pos+=4
+              return n
+          def s():
+              global pos
+              n=u();v=raw[pos:pos+n].decode('utf-8');pos+=n;return v
+          n=u()
+          results=[]
+          for _ in range(n):
+              count=u()
+              display=s()
+              targets=[s() for __ in range(count)]
+              results.append({'display':display,'targets':targets})
+          print('LALATIA_REAL_NATIVE_OPENMW_PARSER='+json.dumps(results,ensure_ascii=False))
+          assert n==3,results
+          assert '평신도 회원' in results[0]['targets'],results
+          assert '제국 교단에 가입' not in results[1]['targets'],results
+          assert '제국 교단에 가입' in results[2]['targets'],results
+          Path('output/lalatia_native_topic_parser_test.json').write_text(json.dumps(results,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lalatia-Join-UNRELEASED-ESP-and-native-parser-QA
+          path: |
+            output/Lalatia-Varian-KR12.6-join-CANDIDATE-NOT-RELEASED.esp
+            output/lalatia_join_candidate_verification.json
+            output/lalatia_native_topic_parser_test.json
+          if-no-files-found: error
