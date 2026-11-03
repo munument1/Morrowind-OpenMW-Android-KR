@@ -107,7 +107,7 @@ def inspect_esp(old_bytes, new_bytes):
                 if info_id in EXPECTED_JOIN_IDS:
                     joining.append(entry)
     if len(changed_ids) != 230 or len(set(changed_ids)) != 230:
-        raise ValueError("KR12.6 expected exactly 230 unique INFO.NAME updates")
+        raise ValueError(f"KR12.6 expected 230 unique INFO.NAME updates; actual records={len(changed_ids)}, unique_INFO_IDs={len(set(changed_ids))}, sample={changed_ids[:10]}")
     if TARGET not in topic_names:
         raise ValueError("Imperial Cult join target DIAL does not exist")
     if {x["INAM"] for x in joining} != set(EXPECTED_JOIN_IDS):
