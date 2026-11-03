@@ -92,6 +92,7 @@ jobs:
           print('LALATIA_TOTAL='+str(len(lalatia)))
           print('LALATIA_INFO='+json.dumps(concise,ensure_ascii=False))
           print('LALATIA_JOIN_COUNT='+str(len(join)))
+          print('LALATIA_JOIN_PATH='+json.dumps([{'dial':x['dial'],'info':x['info'],'actor':x['actor'],'faction':x['faction'],'scvr':x['SCVR'],'response':x['response'],'script':x['result_script']} for x in join if x['dial'] in ('평신도 회원','평신도','제국 교단')],ensure_ascii=False))
           print('LALATIA_GREETING_OTHER='+json.dumps([
               {'dial':x['dial'],'info':x['info'],'actor':x['actor'],'faction':x['faction'],
                'response':x['response'][:320]} for x in greeting_candidates if x['actor'].casefold()!='lalatia varian'
