@@ -1,7 +1,7 @@
 {
-  "release_version": "KR12.5",
-  "latest_release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only",
-  "updated_date": "2026-11-02",
+  "release_version": "KR12.6",
+  "latest_release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.6-data-only",
+  "updated_date": "2026-11-03",
   "update_type": "translation_data",
   "apk": {
     "version": "KR12.4",
@@ -12,10 +12,13 @@
     "sha256": "2fe081e40ea4a7e78c84557b827cf89ad83f5c04e85acd0e518d18f7900ae009"
   },
   "data": {
-    "version": "KR12.5",
-    "release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.5-data-only",
-    "filename": "OpenMW-Android-0.51.0-12-Korean-Data-KR12.5.zip",
-    "sha256": "5f57f7a8d99d12105ca86202a2efe8aca0debb3aba3454b6bf42bf687c414634"
+    "version": "KR12.6",
+    "release": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/tag/android-korean-0.51.0-12-kr12.6-data-only",
+    "filename": "OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip",
+    "sha256": "a1c718740f740cd42fbc0650e54b5bc557aa0a74d40d5a85d95763a84ee7ad3c",
+    "esp_sha256": "c52a5355752ef0be93fadeca9c95ca00d7cad808f713ce92a624a67d0cc277df",
+    "top_sha256": "d14b96aaa3fc09aba193cd2c763787632073b630be4ca0cac5ee2e390b445235",
+    "audit_report": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases/download/android-korean-0.51.0-12-kr12.6-data-only/KR12.6-Android-Data-and-Imperial-Cult-audit.json"
   },
   "gameplay_tested": false
 }
