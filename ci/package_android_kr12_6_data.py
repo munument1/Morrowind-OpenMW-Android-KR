@@ -81,7 +81,7 @@ def inspect_esp(old_bytes, new_bytes):
                     changed.append(name)
             if changed != [b"NAME"]:
                 raise ValueError("Unexpected INFO field changes")
-            changed_ids.append(decoded(dict(af).get(b"INAM", b"")))
+            changed_ids.append((parent, decoded(dict(af).get(b"INAM", b""))))
         if tag == b"INFO":
             f = dict(fields(payload2))
             text = decoded(f.get(b"NAME", b""))
