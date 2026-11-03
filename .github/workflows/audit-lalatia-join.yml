@@ -61,7 +61,7 @@ jobs:
               obj=None
               if actor=='lalatia varian':
                   obj=item(f,parent,kind,i);lalatia.append(obj)
-              if parent=='제국 교단에 가입':
+              if parent in ('제국 교단에 가입','평신도','평신도 회원','제국 교단'):
                   if obj is None: obj=item(f,parent,kind,i)
                   join.append(obj)
               if parent and parent.casefold().startswith('greeting') and (actor=='lalatia varian' or '제국 교단' in response or txt(f,b'FNAM').casefold()=='imperial cult'):
@@ -79,7 +79,9 @@ jobs:
               'greeting_related_count':len(greeting_candidates),
               'greeting_related_records':greeting_candidates,
               'top_matches':sidecar(top,'제국 교단'),
+              'lay_top_matches':sidecar(top,'평신도'),
               'mrk_matches':sidecar(mrk,'제국 교단'),
+              'lay_mrk_matches':sidecar(mrk,'평신도'),
               'analysis_limits':['Static TES3 inspection only; does not run Filter.search NPC state or save-state, other mods may override INFO.']
           }
           Path('output/lalatia_varian_kr126_audit.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
@@ -94,7 +96,8 @@ jobs:
               {'dial':x['dial'],'info':x['info'],'actor':x['actor'],'faction':x['faction'],
                'response':x['response'][:320]} for x in greeting_candidates if x['actor'].casefold()!='lalatia varian'
           ],ensure_ascii=False))
-          print('LALATIA_SIDECARS='+json.dumps({'top':report['top_matches'],'mrk':report['mrk_matches']},ensure_ascii=False))
+          print('LALATIA_SIDECARS='+json.dumps({'top':report['top_matches'],'mrk':report['mrk_matches'],
+               'lay_top':report['lay_top_matches'],'lay_mrk':report['lay_mrk_matches']},ensure_ascii=False))
           PY
       - uses: actions/upload-artifact@v4
         with:
