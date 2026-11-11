@@ -1,0 +1,324 @@
+name: Build verify and optionally release Android KR13 signed native update
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: Publish verified signed APK (default runs build and verification only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-kr13-permanent-signed-apk
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  CERT_SHA: ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2
+  RELEASE_TAG: android-korean-0.51.0-12-kr13-permanent
+  DATA_TAG: android-korean-0.51.0-12-kr13-data-only
+  DATA_FILE: OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip
+  DATA_REPORT: KR13-Android-Data-TES3-Static-QA.json
+  FINAL_APK: OpenMW-Android-0.51.0-12-Korean-KR13-Permanent-16K.apk
+  JOBS: '4'
+
+jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate KR13 0017 source pin and scripts
+        run: |
+          set -euo pipefail
+          bash -n ci/build-korean-native-kr13.sh ci/package-android-kr13.sh
+          grep -Fq '0017-regional-core-topic-aliases.patch' ci/build-korean-native-kr13.sh
+          grep -Fq 'bc31e5f4d31446fede9a9a97233baefe6711b091' ci/build-korean-native-kr13.sh
+          grep -Fq 'runtime_patches=0001-0017' ci/package-android-kr13.sh
+          grep -Fq 'versionCode=5118' ci/package-android-kr13.sh
+          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/korean/patches/0017-regional-core-topic-aliases.patch?ref=f8971943506cd1ed986b48f3a087c366afb0b7c3' --jq .content | base64 --decode > /tmp/kr13-0017.patch
+          test "$(git hash-object /tmp/kr13-0017.patch)" = 'bc31e5f4d31446fede9a9a97233baefe6711b091'
+          if [[ "${{ inputs.publish_release }}" == "true" ]]; then
+            gh release view "$DATA_TAG" --repo "$GH_REPO" >/dev/null
+            if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+              echo '::error::Signed KR13 release already exists; refusing overwrite'
+              exit 1
+            fi
+          fi
+
+  native-and-apk:
+    runs-on: ubuntu-24.04
+    needs: preflight
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install NDK R27, build tools and native prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git curl wget patch unzip zip python3 perl autoconf automake libtool libtool-bin pkg-config bison flex gettext gperf nasm yasm texinfo bzip2 xz-utils
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            source/buildscripts/downloads
+            source/buildscripts/prefix/arm64
+            source/buildscripts/build/arm64
+            !source/buildscripts/build/arm64/openmw-prefix
+          key: ${{ runner.os }}-openmw051-r27d-arm64-16k-kr13-${{ hashFiles('source/buildscripts/CMakeLists.txt','ci/build-korean-native-kr13.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-kr12-
+            ${{ runner.os }}-openmw051-r27d-arm64-16k-kr11-
+      - name: Compile pinned OpenMW 0.51.0 with Korean 0001-0017 patches
+        run: |
+          set -euo pipefail
+          chmod +x ci/patch-sdl2-ndk-r27.sh ci/build-korean-native-kr13.sh
+          ci/patch-sdl2-ndk-r27.sh
+          ci/build-korean-native-kr13.sh
+          grep -Fx 'kr12_4_engine_commit=e677c70d7a81f2033ee6f6ace4fac4533c4211b5' native-artifacts-kr13/korean-origin.txt
+          grep -Fx 'predicative_topic_patch=710a0c1320c8aef66a88732a21e67392777bafbb' native-artifacts-kr13/korean-origin.txt
+          grep -Fx 'noun_topic_patch=1f402a0db93c8d01ca123edfe528ae411cc825c1' native-artifacts-kr13/korean-origin.txt
+          grep -Fx 'kr13_engine_commit=f8971943506cd1ed986b48f3a087c366afb0b7c3' native-artifacts-kr13/korean-origin.txt
+          grep -Fx 'regional_topic_alias_patch=bc31e5f4d31446fede9a9a97233baefe6711b091' native-artifacts-kr13/korean-origin.txt
+          grep -Fx 'required_min_load_align=0x4000' native-artifacts-kr13/page-size-report.txt
+          test -s native-artifacts-kr13/libs/libopenmw.so
+      - name: Test true Android-patched native KeywordSearch regression
+        run: |
+          set -euo pipefail
+          src=source/buildscripts/build/arm64/openmw-prefix/src/openmw
+          test -s "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          grep -F 'futureVerbEndings' "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          grep -F 'zeroCodaNounEndings' "$src/apps/openmw/mwdialogue/keywordsearch.cpp"
+          mkdir -p regression
+          gh api 'repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/verify-issue42-topic-endings.cpp?ref=f8971943506cd1ed986b48f3a087c366afb0b7c3' --jq '.content' | base64 --decode > regression/verify-issue42-topic-endings.cpp
+          g++ -std=c++20 -O2 -I"$src" \
+            regression/verify-issue42-topic-endings.cpp \
+            "$src/apps/openmw/mwdialogue/keywordsearch.cpp" \
+            "$src/components/translation/translation.cpp" \
+            "$src/components/files/collections.cpp" \
+            "$src/components/files/multidircollection.cpp" \
+            "$src/components/files/conversion.cpp" \
+            "$src/components/toutf8/toutf8.cpp" \
+            "$src/components/debug/debuglog.cpp" \
+            -o regression/issue42-android
+          regression/issue42-android
+      - name: Validate actual Android KR13 canonical alias discovery and English saved links
+        run: |
+          set -euo pipefail
+          src=source/buildscripts/build/arm64/openmw-prefix/src/openmw
+          grep -Fq 'Storage::canonicalTopicId' "$src/components/translation/translation.cpp"
+          grep -Fq 'Storage::topicKeywordAliases' "$src/components/translation/translation.cpp"
+          grep -Fq 'translationStorage.topicKeywordAliases(topicId)' "$src/apps/openmw/mwgui/journalviewmodel.cpp"
+          mkdir -p regression
+          cat > regression/verify-kr13-aliases.cpp <<'CPP'
+          #include <apps/openmw/mwdialogue/keywordsearch.hpp>
+          #include <components/translation/translation.hpp>
+          #include <array>
+          #include <iostream>
+          #include <stdexcept>
+          #include <string_view>
+          #include <utility>
+          int main()
+          {
+              Translation::Storage storage;
+              storage.addPhraseForm("talos", "\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4");
+              storage.addPhraseForm("\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4", "\xEB\x8B\xA4\xEB\xA5\xB8\x20\xEC\xA3\xBC\xEC\xA0\x9C");
+              storage.addPhraseForm("english topic", "another english topic");
+              MWDialogue::KeywordSearch search;
+              search.seed("Talos", "Talos");
+              search.seed("\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4", "\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4");
+              const auto found = search.parseHyperText("Talos \xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4", storage, true);
+              if (found.size() != 2 || found[0].mTopicId != "\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4" || found[1].mTopicId != "\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4")
+                  throw std::runtime_error("KR13 canonical discovery regression");
+              const auto displayed = search.parseHyperText("Talos \xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4", storage);
+              if (displayed.size() != 2 || displayed[0].mTopicId != "Talos" || displayed[1].mTopicId != "\xED\x83\x88\xEB\xA1\x9C\xEC\x8A\xA4")
+                  throw std::runtime_error("KR13 legacy English link regression");
+              if (storage.canonicalTopicId("english topic") != "english topic")
+                  throw std::runtime_error("English-only save topic changed");
+              const std::array<std::pair<std::string_view, std::string_view>,4> aliases{{
+                  {"join the Mages Guild","\xEB\xA7\x88\xEB\xB2\x95\xEC\x82\xAC\x20\xEA\xB8\xB8\xEB\x93\x9C\x20\xEA\xB0\x80\xEC\x9E\x85"},
+                  {"join the Fighters Guild","\xEC\xA0\x84\xEC\x82\xAC\x20\xEA\xB8\xB8\xEB\x93\x9C\x20\xEA\xB0\x80\xEC\x9E\x85"},
+                  {"join the Imperial Cult","\xEC\xA0\x9C\xEA\xB5\xAD\x20\xEA\xB5\x90\xEB\x8B\xA8\x20\xEA\xB0\x80\xEC\x9E\x85"},
+                  {"join House Telvanni","\xED\x85\x94\xEB\xB0\x94\xEB\x8B\x88\x20\xEA\xB0\x80\xEB\xAC\xB8\x20\xEA\xB0\x80\xEC\x9E\x85"}
+              }};
+              for (const auto& [english,korean] : aliases)
+              {
+                  storage.addPhraseForm(english,korean);
+                  if (storage.canonicalTopicId(english) != korean)
+                      throw std::runtime_error("KR13 regional TOP alias mapping regression");
+              }
+              std::cout << "PASS: canonical, regional aliases, legacy saved English topic\n";
+          }
+          CPP
+          g++ -std=c++20 -O2 -I"$src" \
+            regression/verify-kr13-aliases.cpp \
+            "$src/apps/openmw/mwdialogue/keywordsearch.cpp" \
+            "$src/components/translation/translation.cpp" \
+            "$src/components/files/collections.cpp" \
+            "$src/components/files/multidircollection.cpp" \
+            "$src/components/files/conversion.cpp" \
+            "$src/components/toutf8/toutf8.cpp" \
+            "$src/components/debug/debuglog.cpp" \
+            -o regression/verify-kr13-aliases
+          regression/verify-kr13-aliases
+      - name: Package non-debuggable Android KR13 16KiB APK, increment versionCode to 5118
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-android-kr13.sh
+          NATIVE_INPUT=native-artifacts-kr13 ci/package-android-kr13.sh
+          test -s release-artifacts-kr13/OpenMW-Android-0.51.0-12-Korean-KR13-Unsigned-16K.apk
+          grep -Fx 'runtime_patches=0001-0017' release-artifacts-kr13/16k-verification.txt
+          grep -Fx 'versionCode=5118' release-artifacts-kr13/16k-verification.txt
+      - name: Decrypt permanent signing identity from authorized repository secrets
+        env:
+          ENC_KEYSTORE: ${{ secrets.ANDROID_KR11_ENCRYPTED_KEYSTORE_JSON }}
+          KEY_HEX: ${{ secrets.ANDROID_KR11_SIGNING_KEY_HEX }}
+        run: |
+          set -euo pipefail
+          test -n "$ENC_KEYSTORE"
+          test -n "$KEY_HEX"
+          python3 -m venv "$RUNNER_TEMP/signing-venv"
+          "$RUNNER_TEMP/signing-venv/bin/pip" --quiet install cryptography==46.0.4
+          "$RUNNER_TEMP/signing-venv/bin/python" - <<'PY'
+          import os,json,base64,zlib
+          from pathlib import Path
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          payload=json.loads(os.environ['ENC_KEYSTORE'])
+          assert payload['certificate_sha256']==os.environ['CERT_SHA']
+          obj=json.loads(zlib.decompress(AESGCM(bytes.fromhex(os.environ['KEY_HEX'])).decrypt(
+              base64.b64decode(payload['nonce_base64']),base64.b64decode(payload['ciphertext_base64']),
+              b'openmw-korean-android-signing-v1')))
+          assert obj['package']=='com.ast.openmw.korean' and obj['certificate_sha256']==os.environ['CERT_SHA']
+          tmp=Path(os.environ['RUNNER_TEMP'])
+          for name,data in (('release.p12',base64.b64decode(obj['keystore_base64'])),
+                            ('release-password.txt',obj['keystore_password'].encode())):
+              path=tmp/name;path.write_bytes(data);path.chmod(0o600)
+          print('Verified original release certificate; no secret material printed')
+          PY
+      - name: Zipalign and permanently sign upgrade APK with existing release certificate
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -P 16 -f 4 \
+            release-artifacts-kr13/OpenMW-Android-0.51.0-12-Korean-KR13-Unsigned-16K.apk "$RUNNER_TEMP/aligned.apk"
+          export KS_PASS="$(cat "$RUNNER_TEMP/release-password.txt")"
+          echo "::add-mask::$KS_PASS"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.p12" --ks-type PKCS12 \
+            --ks-key-alias morrowind-openmw-korean-android --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out "release-artifacts-kr13/$FINAL_APK" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --verbose --print-certs "release-artifacts-kr13/$FINAL_APK" > release-artifacts-kr13/kr13-certificate.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $CERT_SHA" release-artifacts-kr13/kr13-certificate.txt
+          "$tools/zipalign" -c -P 16 4 "release-artifacts-kr13/$FINAL_APK"
+          "$tools/aapt" dump badging "release-artifacts-kr13/$FINAL_APK" > release-artifacts-kr13/kr13-badging.txt
+          grep -F "name='com.ast.openmw.korean'" release-artifacts-kr13/kr13-badging.txt
+          grep -F "versionCode='5118'" release-artifacts-kr13/kr13-badging.txt
+          grep -F "versionName='0.51.0-12-KR13'" release-artifacts-kr13/kr13-badging.txt
+          if grep -Fq 'application-debuggable' release-artifacts-kr13/kr13-badging.txt; then
+            echo "::error::Refuse debuggable signed release"; exit 1
+          fi
+          test "$(unzip -p "release-artifacts-kr13/$FINAL_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')" = "$(awk 'NR==1{print $1}' native-artifacts-kr13/libopenmw.so.sha256)"
+          (cd release-artifacts-kr13 && sha256sum "$FINAL_APK" > "$FINAL_APK.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR13-Permanent-Signed-Verified
+          path: |
+            release-artifacts-kr13/*-Permanent-16K.apk
+            release-artifacts-kr13/*-Permanent-16K.apk.sha256
+            release-artifacts-kr13/16k-verification.txt
+            release-artifacts-kr13/kr13-certificate.txt
+            release-artifacts-kr13/kr13-badging.txt
+            native-artifacts-kr13/korean-origin.txt
+            native-artifacts-kr13/libopenmw.so.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - name: Destroy ephemeral signing secrets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12" "$RUNNER_TEMP/release-password.txt" "$RUNNER_TEMP/aligned.apk"
+
+  publish:
+    needs: [preflight, native-and-apk]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Android-KR13-Permanent-Signed-Verified
+          path: downloaded
+      - name: Reverify permanent signature and KR13 package before publication
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, shutil
+          from pathlib import Path
+          src, dst = Path('downloaded'), Path('output')
+          apk = os.environ['FINAL_APK']
+          names = (apk, apk + '.sha256', 'kr13-certificate.txt',
+                   'kr13-badging.txt', '16k-verification.txt',
+                   'korean-origin.txt', 'libopenmw.so.sha256')
+          if '/' in apk or '\\' in apk or not apk.endswith('.apk'):
+              raise SystemExit('Invalid APK basename')
+          located = {}
+          for name in names:
+              found = [x for x in src.rglob(name) if x.is_file() and x.name == name]
+              if len(found) != 1 or found[0].stat().st_size == 0:
+                  raise SystemExit(f'Expected exactly one nonempty {name}, found {len(found)}')
+              if (dst / name).exists():
+                  raise SystemExit(f'Refusing overwrite: {dst / name}')
+              located[name] = found[0]
+          dst.mkdir(parents=True, exist_ok=True)
+          for name, member in located.items():
+              shutil.copyfile(member, dst / name)
+          print('PASS: unique KR13 signed artifacts normalized')
+          PY
+          for f in "$FINAL_APK" "$FINAL_APK.sha256" kr13-certificate.txt kr13-badging.txt 16k-verification.txt korean-origin.txt libopenmw.so.sha256; do
+            test -s "output/$f"
+          done
+          (cd output && sha256sum -c "$FINAL_APK.sha256")
+          grep -Fx 'regional_topic_alias_patch=bc31e5f4d31446fede9a9a97233baefe6711b091' output/korean-origin.txt
+          grep -Fx 'runtime_patches=0001-0017' output/16k-verification.txt
+          grep -Fx 'versionCode=5118' output/16k-verification.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $CERT_SHA" output/kr13-certificate.txt
+          grep -F "name='com.ast.openmw.korean'" output/kr13-badging.txt
+          grep -F "versionCode='5118'" output/kr13-badging.txt
+          grep -F "versionName='0.51.0-12-KR13'" output/kr13-badging.txt
+          unzip -tq "output/$FINAL_APK"
+          gh release download "$DATA_TAG" --repo "$GH_REPO"             --pattern "$DATA_FILE" --pattern "$DATA_FILE.sha256"             --pattern "$DATA_REPORT" --dir output
+          test -s "output/$DATA_FILE"
+          test -s "output/$DATA_FILE.sha256"
+          test -s "output/$DATA_REPORT"
+          (cd output && sha256sum -c "$DATA_FILE.sha256")
+          unzip -tq "output/$DATA_FILE"
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo '::error::KR13 signed release already exists; refusing overwrite'
+            exit 1
+          fi
+      - name: Publish new KR13 APK only after explicit opt-in
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/kr13-notes.md" <<'EOF'
+          ## OpenMW Android 0.51.0-12 Korean KR13
+
+          Signed ARM64 OpenMW 0.51.0 Android update. Keeps the original Korean app identity com.ast.openmw.korean, release certificate, installed data and saves.
+
+          - Windows KR13 native Korean patches 0001-0017, including shared regional/core topic aliases.
+          - Android versionCode 5118 and versionName 0.51.0-12-KR13.
+          - 16 KiB ELF LOAD and ZIP alignment, signed APK verification and native C++ topic regressions.
+          - Includes the verified Korean KR13 data ZIP from the dedicated data-only release, plus the signed APK.
+          - End-to-end gameplay and save/reload must be checked on a physical Android device.
+          EOF
+          gh release create "$RELEASE_TAG"             "output/$FINAL_APK" "output/$FINAL_APK.sha256"             "output/$DATA_FILE" "output/$DATA_FILE.sha256" "output/$DATA_REPORT"             output/16k-verification.txt output/kr13-certificate.txt             output/korean-origin.txt output/libopenmw.so.sha256             --repo "$GH_REPO" --target "$GITHUB_SHA"             --title 'OpenMW Android 0.51.0-12 Korean KR13 - permanent signed APK and data'             --notes-file "$RUNNER_TEMP/kr13-notes.md"
