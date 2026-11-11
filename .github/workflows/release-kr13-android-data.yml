@@ -1,0 +1,143 @@
+name: Verify and optionally publish Android KR13 Korean data
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Publish new immutable Android KR13 data release (false = dry run)"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-kr13-data-only
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  ATAG: android-korean-0.51.0-12-kr12.6-data-only
+  AFILE: OpenMW-Android-0.51.0-12-Korean-Data-KR12.6.zip
+  WTAG: openmw-0.51.0-kr13
+  WFILE: Morrowind-Korean-OpenMW-0.51.0-KR13-Full.zip
+  TAG: android-korean-0.51.0-12-kr13-data-only
+  OUTPUT: OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip
+  REPORT: KR13-Android-Data-TES3-Static-QA.json
+  PUBLISH_RELEASE: ${{ inputs.publish_release }}
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  verify-and-optionally-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check Python source and independent regression tests
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import ast
+          for path in ('ci/package_android_kr13_data.py',
+                       'ci/patch_kr12_quest_entry_topics.py',
+                       'ci/test_android_kr13_data.py'):
+              ast.parse(open(path, encoding='utf-8').read(), filename=path)
+          PY
+          python3 -m unittest discover -s ci -p 'test_android_kr13_data.py' -v
+      - name: Preflight immutable release and fetch pinned official ZIPs
+        run: |
+          set -euo pipefail
+          if [[ "$PUBLISH_RELEASE" == "true" ]] && gh release view "$TAG" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Android KR13 data tag already exists. Refusing to overwrite."
+            exit 1
+          fi
+          if [[ "$PUBLISH_RELEASE" == "true" ]] && gh api \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Git tag already exists. Refusing to reuse it."
+            exit 1
+          fi
+          mkdir -p input output
+          gh release download "$ATAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$AFILE" --pattern "$AFILE.sha256" --dir input
+          gh release download "$WTAG" --repo munument1/Morrowind-OpenMW-KR \
+            --pattern "$WFILE" --pattern "$WFILE.sha256" --dir input
+          (cd input && sha256sum -c "$AFILE.sha256" && sha256sum -c "$WFILE.sha256")
+          echo "a1c718740f740cd42fbc0650e54b5bc557aa0a74d40d5a85d95763a84ee7ad3c  input/$AFILE" | sha256sum -c -
+          echo "40da1be66a346c86baa2a3024346b300284c68a73379c64c4e1647744158ac31  input/$WFILE" | sha256sum -c -
+      - name: Rebuild data ZIP and validate TES3, TOP, metadata and every Android member
+        run: |
+          set -euo pipefail
+          python3 ci/package_android_kr13_data.py \
+            --android "input/$AFILE" --windows "input/$WFILE" \
+            --output "output/$OUTPUT" --report "output/$REPORT"
+          ANDROID_KR13_TEST_ANDROID_ZIP="input/$AFILE" \
+            ANDROID_KR13_TEST_WINDOWS_ZIP="input/$WFILE" \
+            python3 -m unittest discover -s ci -p 'test_android_kr13_data.py' -v
+          unzip -tq "output/$OUTPUT"
+          (cd output && sha256sum -c "$OUTPUT.sha256")
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads((Path("output") / os.environ["REPORT"]).read_text(encoding="utf-8"))
+          info, top = report["record_verification"], report["top_verification"]
+          assert report["status"] == "ANDROID_KR13_DATA_ONLY_STATIC_QA_PASS"
+          assert info["all_non_INFO_records_unchanged"]
+          assert info["all_INFO_non_NAME_fields_byte_identical"]
+          assert info["record_headers_and_order_preserved"]
+          assert info["changed_INFO_links_resolve_to_DIAL_or_TOP"]
+          assert len(info["reviewed_visible_corrections"]) == 2
+          assert top["original_aliases_and_order_preserved"]
+          assert top["TOP_targets_resolve_to_DIAL_except_known_external"]
+          assert len(top["known_external_topic_targets"]) == 4
+          assert report["android_members_and_metadata_preserved"]
+          assert report["new_documentation_member"] == "KR13-ANDROID-UPGRADE.txt"
+          assert not report["apk_rebuilt"] and not report["in_game_verified"]
+          print("ANDROID_KR13_DATA_STATIC_QA_PASS", report["output_sha256"])
+          PY
+      - name: Preserve inspectable data and QA report from dry run or publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR13-DATA-STATIC-QA
+          if-no-files-found: error
+          path: |
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip
+            output/OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip.sha256
+            output/KR13-Android-Data-TES3-Static-QA.json
+      - name: Publish NEW Android KR13 data-only release on explicit opt-in
+        if: ${{ inputs.publish_release == true }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Existing release/tag. Refusing overwrite."
+            exit 1
+          fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Existing Git tag. Refusing reuse."
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## OpenMW Android KR13 — 한국어 데이터 전용
+
+          Android KR12.6 공식 데이터 ZIP의 한국어 ESP/TOP을 Windows KR13 공식 번역으로 갱신한 데이터입니다.
+          기존 게임 데이터·세이브를 백업하고 같은 데이터 폴더에 적용하세요.
+
+          - 한국어 ESP 48,146개 TES3 레코드 유지, INFO.NAME 224개 갱신(표시 보존 222개, 공식 문장 교정 2개)
+          - TOP 별칭 2,202개 추가, 기존 5,934개 별칭 보존
+          - 기존 Android 번역 파일·자막·폰트 등 다른 자산의 바이트 동일성 확인
+          - 구형 README를 보존하고 `KR13-ANDROID-UPGRADE.txt` 설치/호환 주의사항 추가
+          - 네 개의 영문 가입 주제 TOP 연결은 Android 엔진의 KR13 토픽 처리 업데이트가 필요할 수 있음
+
+          **KR13 대응 서명 APK와 이 데이터 ZIP을 함께 사용하세요.** 기존 KR12.4 APK에는 Windows KR13의 토픽 처리 패치 0017이 포함되지 않았습니다. 동일한 서명 및 앱 ID의 Android KR13 APK 배포 여부는 [APK 릴리즈 목록](https://github.com/munument1/Morrowind-OpenMW-Android-KR/releases)에서 확인하세요.
+
+          이 ZIP에는 APK·상용 ESM·세이브가 없습니다. 자동 정적 검증은 실제 NPC/퀘스트 진행의 성공을 보장하지 않습니다. 세부 확인 결과는 첨부 JSON을 참고하세요.
+          EOF
+          gh release create "$TAG" \
+            "output/$OUTPUT" "output/$OUTPUT.sha256" "output/$REPORT" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "OpenMW Android KR13 — 한국어 데이터 전용" \
+            --notes-file release-notes.md --latest=false
