@@ -182,4 +182,9 @@
     <string name="sdl_exit">Quitter</string>
     <string name="sdl_start_error">Une erreur est survenue lors du démarrage de l’application. Veuillez réessayer et/ou réinstaller l’application.\n\nErreur : %1$s</string>
     <string name="navmesh_generating_cache">GÉNÉRATION DU CACHE NAVMESH</string>
+    <string name="pref_font_size">Taille de police</string>
+    <string name="pref_truetype_fonts_title">Polices nettes</string>
+    <string name="pref_truetype_fonts_summary">Utiliser les polices TrueType d’OpenMW au lieu des polices bitmap d’origine. Elles restent nettes à toutes les tailles de police et échelles d’interface, et sont nécessaires au-delà de la taille 18.</string>
+    <string name="pref_handheld_mode_title">Mode portable</string>
+    <string name="pref_handheld_mode_summary">Pour les appareils avec commandes intégrées. Masque les boutons à l’écran. Maintenez L1 pour le menu radial. R1 ouvre le journal. Select fait se reposer, ou ouvre le clavier Android dans un champ de texte. L3 affiche le pointeur dans les menus. Maintenez Select et appuyez sur L3 ou R3 pour l’overlay de performances.</string>
 </resources>

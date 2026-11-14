@@ -182,4 +182,9 @@
     <string name="sdl_exit">Beenden</string>
     <string name="sdl_start_error">Beim Starten der Anwendung ist ein Fehler aufgetreten. Bitte versuche es erneut und/oder installiere die Anwendung neu.\n\nFehler: %1$s</string>
     <string name="navmesh_generating_cache">NAVMESH-CACHE WIRD ERSTELLT</string>
+    <string name="pref_font_size">Schriftgröße</string>
+    <string name="pref_truetype_fonts_title">Scharfe Schriften</string>
+    <string name="pref_truetype_fonts_summary">Die TrueType-Schriften von OpenMW statt der originalen Bitmap-Schriften verwenden. Sie bleiben bei jeder Schriftgröße und UI-Skalierung scharf und sind für Schriftgrößen über 18 nötig.</string>
+    <string name="pref_handheld_mode_title">Handheld-Modus</string>
+    <string name="pref_handheld_mode_summary">Für Geräte mit eingebauten Bedienelementen. Blendet die Bildschirmtasten aus. L1 gedrückt halten für das Radialmenü. R1 öffnet das Tagebuch. Select rastet, oder öffnet in einem Textfeld die Android-Tastatur. L3 zeigt den Zeiger in Menüs. Select gedrückt halten und L3 oder R3 für die Leistungsanzeige.</string>
 </resources>

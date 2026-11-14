@@ -182,4 +182,9 @@
     <string name="sdl_exit">Avsluta</string>
     <string name="sdl_start_error">Ett fel inträffade när appen skulle startas. Försök igen och/eller installera om appen.\n\nFel: %1$s</string>
     <string name="navmesh_generating_cache">SKAPAR NAVMESH-CACHE</string>
+    <string name="pref_font_size">Teckenstorlek</string>
+    <string name="pref_truetype_fonts_title">Skarpa typsnitt</string>
+    <string name="pref_truetype_fonts_summary">Använd OpenMW:s TrueType-typsnitt i stället för de ursprungliga bitmappstypsnitten. De förblir skarpa i alla teckenstorlekar och gränssnittsskalor och behövs för storlekar över 18.</string>
+    <string name="pref_handheld_mode_title">Handhållet läge</string>
+    <string name="pref_handheld_mode_summary">För enheter med inbyggda kontroller. Döljer skärmknapparna. Håll L1 för radialmenyn. R1 öppnar dagboken. Select vilar, eller öppnar Android-tangentbordet i ett textfält. L3 visar pekaren i menyer. Håll Select och tryck L3 eller R3 för prestandaöverlägget.</string>
 </resources>

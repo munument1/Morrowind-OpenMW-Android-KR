@@ -1,0 +1,28 @@
+name: Verify Android 0.51.0-14 handheld source candidate
+
+on:
+  pull_request:
+    paths:
+      - 'source/app/**'
+      - 'source/buildscripts/CMakeLists.txt'
+      - 'source/buildscripts/patches/gl4es/**'
+      - 'ci/test_android_kr14_handheld.py'
+      - '.github/workflows/verify-android-kr14-handheld.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-guard:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify Korean and English radial menu assets, Android identity, and NDK settings
+        run: python3 -m unittest discover -s ci -p 'test_android_kr14_handheld.py' -v
+      - name: Verify existing Android KR13 data/ZIP guardrails
+        run: python3 -m unittest discover -s ci -p 'test_android_kr13_data.py' -v
+      - name: Verify source formatting
+        run: git diff --check HEAD^ HEAD

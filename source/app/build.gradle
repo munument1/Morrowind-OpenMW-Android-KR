@@ -738,7 +738,9 @@ android {
     namespace 'com.libopenmw.openmw'
 
     compileSdk 35
-    ndkVersion '26.1.10909125'
+    // Match the NDK r27d already used for Korean ARM64 native builds;
+    // it also supports 16 KiB ELF page alignment for libhandheld.so.
+    ndkVersion '27.3.13750724'
 
     sourceSets {
         main {
