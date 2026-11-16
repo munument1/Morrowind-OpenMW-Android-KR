@@ -26,3 +26,24 @@ jobs:
         run: python3 -m unittest discover -s ci -p 'test_android_kr13_data.py' -v
       - name: Verify source formatting
         run: git diff --check HEAD^ HEAD
+      - name: Test issue 71 Android subtitle-only data boundary
+        run: python3 -m unittest discover -s ci -p 'test_issue71_android_data.py' -v
+      - name: Rebuild and verify issue 71 Android data candidate without publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p issue71-input issue71-output
+          gh release download android-korean-0.51.0-12-kr13-data-only \
+            --repo "$GITHUB_REPOSITORY" --pattern 'OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip' --dir issue71-input
+          gh run download 43806022873 --repo munument1/Morrowind-OpenMW-KR \
+            --name issue71-60496 --dir issue71-input
+          python3 ci/package_issue71_android_data.py \
+            --android issue71-input/OpenMW-Android-0.51.0-12-Korean-Data-KR13.zip \
+            --windows issue71-input/Morrowind-Korean-OpenMW-0.51.0-KR13.2-Full.zip \
+            --output issue71-output
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR14-Issue71-Data-Candidate
+          path: issue71-output/*
+          if-no-files-found: error
