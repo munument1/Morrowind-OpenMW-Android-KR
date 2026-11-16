@@ -100,13 +100,13 @@ test "$(git hash-object "$DEST/0017-regional-core-topic-aliases.patch")" = "$KR1
 
 
 # Windows issue #71 display fixes, pinned independently from the KR13 alias patch.
-KR14_DISPLAY_COMMIT='0d015d6165432fc9375d93014c4ab51ef036d0ea'
+KR14_DISPLAY_COMMIT='ec69b1133c284cae65a1446174d869fafcd3251e'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0018-korean-dialogue-topic-captions.patch?ref=$KR14_DISPLAY_COMMIT" --jq '.content' | base64 --decode > "$DEST/0018-korean-dialogue-topic-captions.patch"
-test "$(git hash-object "$DEST/0018-korean-dialogue-topic-captions.patch")" = 'a246ccb2d32fff854168ba7f4aeb1b7b9e9ae343'
+test "$(git hash-object "$DEST/0018-korean-dialogue-topic-captions.patch")" = '500a78443c9aebed077e485b1bc001763a6cc9a8'
 gh api "repos/$KR12_ENGINE_REPO/contents/korean/patches/0019-korean-journal-topic-captions.patch?ref=$KR14_DISPLAY_COMMIT" --jq '.content' | base64 --decode > "$DEST/0019-korean-journal-topic-captions.patch"
 test "$(git hash-object "$DEST/0019-korean-journal-topic-captions.patch")" = '044984a7b100d3f284ece8db92e26151964aebe2'
 printf '%s\n' "display_engine_commit=$KR14_DISPLAY_COMMIT" > "$OUTDIR/display-origin.txt"
-echo '0018-korean-dialogue-topic-captions.patch=a246ccb2d32fff854168ba7f4aeb1b7b9e9ae343' >> "$OUTDIR/display-origin.txt"
+echo '0018-korean-dialogue-topic-captions.patch=500a78443c9aebed077e485b1bc001763a6cc9a8' >> "$OUTDIR/display-origin.txt"
 echo '0019-korean-journal-topic-captions.patch=044984a7b100d3f284ece8db92e26151964aebe2' >> "$OUTDIR/display-origin.txt"
 
 printf '%s\n' \
@@ -211,7 +211,7 @@ mkdir -p source/buildscripts/toolchain source/buildscripts/downloads
 ln -s "$NDK_ROOT" source/buildscripts/toolchain/ndk
 : > source/buildscripts/downloads/ndk-r26b.zip
 
-rm -rf source/buildscripts/build/arm64/openmw-prefix
+rm -rf source/buildscripts/build/arm64/openmw-prefix source/buildscripts/build/arm64/gl4es-prefix
 set +e
 (
   cd source/buildscripts

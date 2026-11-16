@@ -118,7 +118,7 @@ grep -Fq '<item>매우 높음</item>' source/app/src/main/res/values-ko/strings.
 # The source identity is fixed to KR14; never relabel an older launcher.
 grep -Fq 'def openMwVersionCode = 5119' source/app/build.gradle
 grep -Fq "def openMwAndroidVersionName = '0.51.0-14-KR14'" source/app/build.gradle
-grep -Fxq 'display_engine_commit=0d015d6165432fc9375d93014c4ab51ef036d0ea' "$NATIVE_INPUT/korean-origin.txt"
+grep -Fxq 'display_engine_commit=ec69b1133c284cae65a1446174d869fafcd3251e' "$NATIVE_INPUT/korean-origin.txt"
 test -s "$NATIVE_INPUT/handheld-abi.json"
 # Restore the Korean font payload from the pinned permanent baseline.
 gh release download android-korean-0.51.0-12-kr8 --repo munument1/Morrowind-OpenMW-Android-KR --pattern OpenMW-Android-0.51.0-12-Korean-KR8-16K.apk --dir work/upstream --clobber

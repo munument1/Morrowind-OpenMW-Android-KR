@@ -61,7 +61,8 @@ jobs:
           sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           yes | "$sdkmanager" --licenses >/dev/null || true
           "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
-      - uses: actions/cache@v4
+      - id: deps-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             source/buildscripts/downloads
@@ -86,6 +87,15 @@ jobs:
           grep -Fx 'regional_topic_alias_patch=bc31e5f4d31446fede9a9a97233baefe6711b091' native-artifacts-kr14/korean-origin.txt
           grep -Fx 'required_min_load_align=0x4000' native-artifacts-kr14/page-size-report.txt
           test -s native-artifacts-kr14/libs/libopenmw.so
+      - uses: actions/cache/save@v4
+        if: always() && steps.deps-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            source/buildscripts/downloads
+            source/buildscripts/prefix/arm64
+            source/buildscripts/build/arm64
+            !source/buildscripts/build/arm64/openmw-prefix
+          key: ${{ steps.deps-cache.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -98,7 +108,7 @@ jobs:
           src=source/buildscripts/build/arm64/openmw-prefix/src/openmw
           mkdir -p regression
           for file in test-issue71-topic-display.cpp test-korean-topic-markup.cpp; do
-            gh api "repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/$file?ref=0d015d6165432fc9375d93014c4ab51ef036d0ea" --jq .content | base64 --decode > "regression/$file"
+            gh api "repos/munument1/Morrowind-OpenMW-KR/contents/packaging/korean/tooling/$file?ref=ec69b1133c284cae65a1446174d869fafcd3251e" --jq .content | base64 --decode > "regression/$file"
           done
           g++ -std=c++20 -O2 -I"$src" regression/test-issue71-topic-display.cpp \
             "$src/components/translation/translation.cpp" "$src/components/files/collections.cpp" \
