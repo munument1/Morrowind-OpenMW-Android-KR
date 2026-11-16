@@ -85,7 +85,7 @@ class HandheldPortTests(unittest.TestCase):
         native = (MAIN / "cpp/Android.mk").read_text(encoding="utf-8")
         self.assertIn('applicationId "com.ast.openmw.korean"', gradle)
         self.assertIn('openMwVersionCode = 5119', gradle)
-        self.assertIn("0.51.0-14-KR14-dev", gradle)
+        self.assertIn("0.51.0-14-KR14", gradle)
         self.assertIn("ndkVersion '27.3.13750724'", gradle)
         self.assertIn("max-page-size=16384", native)
         self.assertIn("common-page-size=16384", native)

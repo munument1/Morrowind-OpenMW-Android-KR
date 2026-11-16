@@ -11,7 +11,7 @@ apply plugin: 'kotlin-android'
 // Newer than the latest published permanent APK (5117) and the
 // staged Android KR13 build (5118). No signed APK is published here.
 def openMwVersionCode = 5119
-def openMwAndroidVersionName = '0.51.0-14-KR14-dev'
+def openMwAndroidVersionName = '0.51.0-14-KR14'
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -148,9 +148,9 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        if (openMwVersionCode != 5119 || calculateVersion() != '0.51.0-14-KR14-dev') {
+        if (openMwVersionCode != 5119 || calculateVersion() != '0.51.0-14-KR14') {
             throw new GradleException(
-                    'OpenMW Android KR14 development identity must be versionName 0.51.0-14-KR14-dev and versionCode 5119.'
+                    'OpenMW Android KR14 build identity must be versionName 0.51.0-14-KR14 and versionCode 5119.'
             )
         }
 
