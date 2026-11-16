@@ -5,9 +5,9 @@ on:
   push:
     branches: [work/android-051014-handheld-integrate]
     paths:
-      - '.github/workflows/build-kr14-android-apk.yml'
-      - 'ci/*kr14*'
+      - 'ci/build-korean-native-kr14.sh'
       - 'ci/verify_handheld_native.py'
+      - 'ci/test_android_kr14*.py'
       - 'source/**'
 
 permissions:

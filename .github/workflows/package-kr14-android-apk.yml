@@ -1,0 +1,162 @@
+name: Package verified Android KR14 native build
+on:
+  workflow_dispatch:
+  push:
+    branches: [work/android-051014-handheld-integrate]
+    paths:
+      - '.github/workflows/package-kr14-android-apk.yml'
+      - 'ci/package-android-kr14.sh'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: android-kr14-package-verified-native
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  CERT_SHA: ebf75015d1b61b14ffa2a3539d8981434c30272219eb6b0ae0c3de16bb2228f2
+  FINAL_APK: OpenMW-Android-0.51.0-14-Korean-KR14-Permanent-16K.apk
+  JOBS: '4'
+  VERIFIED_NATIVE_RUN: '43789314649'
+  VERIFIED_NATIVE_HEAD: '6cc0633a4bd73ee74c30a5837a50d7a54e4cb710'
+
+jobs:
+  package-and-sign:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install NDK R27, build tools and native prerequisites
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git curl wget patch unzip zip python3 perl autoconf automake libtool libtool-bin pkg-config bison flex gettext gperf nasm yasm texinfo bzip2 xz-utils
+          sdkmanager="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          yes | "$sdkmanager" --licenses >/dev/null || true
+          "$sdkmanager" 'ndk;27.3.13750724' 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify native source and completed regression provenance
+        run: |
+          set -euo pipefail
+          git diff --exit-code "$VERIFIED_NATIVE_HEAD" "$GITHUB_SHA" -- source ci/build-korean-native-kr14.sh ci/verify_handheld_native.py
+          gh api "repos/$GH_REPO/actions/runs/$VERIFIED_NATIVE_RUN" > "$RUNNER_TEMP/native-run.json"
+          gh api "repos/$GH_REPO/actions/runs/$VERIFIED_NATIVE_RUN/jobs" > "$RUNNER_TEMP/native-jobs.json"
+          gh api "repos/$GH_REPO/actions/runs/$VERIFIED_NATIVE_RUN/artifacts" > "$RUNNER_TEMP/native-artifacts.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tmp = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((tmp/'native-run.json').read_text())
+          assert run['head_sha'] == os.environ['VERIFIED_NATIVE_HEAD']
+          assert run['head_repository']['full_name'] == os.environ['GH_REPO']
+          job = next(j for j in json.loads((tmp/'native-jobs.json').read_text())['jobs'] if j['name']=='native-and-apk')
+          steps = {s['name']:s['conclusion'] for s in job['steps']}
+          required = [
+              'Compile pinned OpenMW 0.51.0 with Korean 0001-0019 patches',
+              'Verify dialogue captions and subtitle markup against Android sources',
+              'Test true Android-patched native KeywordSearch regression',
+              'Validate actual Android KR14 canonical alias discovery and English saved links',
+          ]
+          assert all(steps.get(s)=='success' for s in required), steps
+          artifacts = json.loads((tmp/'native-artifacts.json').read_text())['artifacts']
+          artifact = next(a for a in artifacts if a['name']=='Android-KR14-native-diagnostics')
+          assert artifact['id']==14193146070 and not artifact['expired']
+          assert artifact['digest']=='sha256:6ad393476eda1c561559e39d003f060b9f7bc608112520ce1aeff8020ac8398b'
+          out = Path('release-artifacts-kr14');out.mkdir(exist_ok=True)
+          (out/'reused-native-origin.json').write_text(json.dumps({
+              'native_run':run['html_url'],'native_head':run['head_sha'],
+              'artifact_id':artifact['id'],'artifact_digest':artifact['digest'],
+              'native_source_matches_current_checkout':True,
+              'passed_native_regressions':required,
+          },indent=2)+'\n')
+          print('PASS: exact native source, artifact digest and all native regressions verified')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: Android-KR14-native-diagnostics
+          run-id: ${{ env.VERIFIED_NATIVE_RUN }}
+          github-token: ${{ github.token }}
+          path: native-artifacts-kr14
+      - name: Package non-debuggable Android KR14 16KiB APK, increment versionCode to 5119
+        run: |
+          set -euo pipefail
+          chmod +x ci/package-android-kr14.sh
+          NATIVE_INPUT=native-artifacts-kr14 ci/package-android-kr14.sh
+          test -s release-artifacts-kr14/OpenMW-Android-0.51.0-14-Korean-KR14-Unsigned-16K.apk
+          grep -Fx 'runtime_patches=0001-0019' release-artifacts-kr14/16k-verification.txt
+          grep -Fx 'versionCode=5119' release-artifacts-kr14/16k-verification.txt
+      - name: Decrypt permanent signing identity from authorized repository secrets
+        env:
+          ENC_KEYSTORE: ${{ secrets.ANDROID_KR11_ENCRYPTED_KEYSTORE_JSON }}
+          KEY_HEX: ${{ secrets.ANDROID_KR11_SIGNING_KEY_HEX }}
+        run: |
+          set -euo pipefail
+          test -n "$ENC_KEYSTORE"
+          test -n "$KEY_HEX"
+          python3 -m venv "$RUNNER_TEMP/signing-venv"
+          "$RUNNER_TEMP/signing-venv/bin/pip" --quiet install cryptography==46.0.4
+          "$RUNNER_TEMP/signing-venv/bin/python" - <<'PY'
+          import os,json,base64,zlib
+          from pathlib import Path
+          from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+          payload=json.loads(os.environ['ENC_KEYSTORE'])
+          assert payload['certificate_sha256']==os.environ['CERT_SHA']
+          obj=json.loads(zlib.decompress(AESGCM(bytes.fromhex(os.environ['KEY_HEX'])).decrypt(
+              base64.b64decode(payload['nonce_base64']),base64.b64decode(payload['ciphertext_base64']),
+              b'openmw-korean-android-signing-v1')))
+          assert obj['package']=='com.ast.openmw.korean' and obj['certificate_sha256']==os.environ['CERT_SHA']
+          tmp=Path(os.environ['RUNNER_TEMP'])
+          for name,data in (('release.p12',base64.b64decode(obj['keystore_base64'])),
+                            ('release-password.txt',obj['keystore_password'].encode())):
+              path=tmp/name;path.write_bytes(data);path.chmod(0o600)
+          print('Verified original release certificate; no secret material printed')
+          PY
+      - name: Zipalign and permanently sign upgrade APK with existing release certificate
+        run: |
+          set -euo pipefail
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -P 16 -f 4 \
+            release-artifacts-kr14/OpenMW-Android-0.51.0-14-Korean-KR14-Unsigned-16K.apk "$RUNNER_TEMP/aligned.apk"
+          export KS_PASS="$(cat "$RUNNER_TEMP/release-password.txt")"
+          echo "::add-mask::$KS_PASS"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.p12" --ks-type PKCS12 \
+            --ks-key-alias morrowind-openmw-korean-android --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --v1-signing-enabled true --v2-signing-enabled true \
+            --out "release-artifacts-kr14/$FINAL_APK" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify --verbose --print-certs "release-artifacts-kr14/$FINAL_APK" > release-artifacts-kr14/kr14-certificate.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: $CERT_SHA" release-artifacts-kr14/kr14-certificate.txt
+          "$tools/zipalign" -c -P 16 4 "release-artifacts-kr14/$FINAL_APK"
+          "$tools/aapt" dump badging "release-artifacts-kr14/$FINAL_APK" > release-artifacts-kr14/kr14-badging.txt
+          grep -F "name='com.ast.openmw.korean'" release-artifacts-kr14/kr14-badging.txt
+          grep -F "versionCode='5119'" release-artifacts-kr14/kr14-badging.txt
+          grep -F "versionName='0.51.0-14-KR14'" release-artifacts-kr14/kr14-badging.txt
+          if grep -Fq 'application-debuggable' release-artifacts-kr14/kr14-badging.txt; then
+            echo "::error::Refuse debuggable signed release"; exit 1
+          fi
+          test "$(unzip -p "release-artifacts-kr14/$FINAL_APK" lib/arm64-v8a/libopenmw.so | sha256sum | awk '{print $1}')" = "$(awk 'NR==1{print $1}' native-artifacts-kr14/libopenmw.so.sha256)"
+          (cd release-artifacts-kr14 && sha256sum "$FINAL_APK" > "$FINAL_APK.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android-KR14-Permanent-Signed-Verified
+          path: |
+            release-artifacts-kr14/*-Permanent-16K.apk
+            release-artifacts-kr14/*-Permanent-16K.apk.sha256
+            release-artifacts-kr14/16k-verification.txt
+            release-artifacts-kr14/kr14-certificate.txt
+            release-artifacts-kr14/kr14-badging.txt
+            native-artifacts-kr14/korean-origin.txt
+            native-artifacts-kr14/libopenmw.so.sha256
+            native-artifacts-kr14/handheld-abi.json
+            release-artifacts-kr14/reused-native-origin.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Destroy ephemeral signing secrets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.p12" "$RUNNER_TEMP/release-password.txt" "$RUNNER_TEMP/aligned.apk"

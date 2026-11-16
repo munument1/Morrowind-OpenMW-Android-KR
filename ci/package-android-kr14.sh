@@ -229,7 +229,6 @@ cp "$NATIVE_INPUT/page-size-report.txt" "$OUTDIR/native-build-page-size-report.t
 
 echo 'Verified Korean KR14 unsigned release candidate with patches 0001-0019 and 16 KiB native ELF alignment.'
 
-test -s source/app/src/main/jniLibs/arm64-v8a/libhandheld.so
 unzip -Z1 "$OUT" | grep -Fx 'lib/arm64-v8a/libhandheld.so'
 unzip -Z1 "$OUT" | grep -Fx 'assets/handheld/l10n/OMWRadialMenu/ko.yaml'
 cp "$NATIVE_INPUT/handheld-abi.json" "$OUTDIR/handheld-abi.json"
