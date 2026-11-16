@@ -311,4 +311,4 @@ python3 ci/verify_handheld_native.py --source "$SRC" --library "$OUTDIR/libopenm
 cat "$OUTDIR/handheld-abi.json"
 cat "$OUTDIR/display-origin.txt" >> "$OUTDIR/korean-origin.txt"
 grep -Fq 'Storage::topicDisplayName' "$SRC/components/translation/translation.cpp"
-grep -Fq 'visibleKoreanTopicText' "$SRC/apps/openmw/mwdialogue/dialoguemanagerimp.cpp"
+grep -Fq 'visibleKoreanTopicText' "$SRC/apps/openmw/mwgui/windowmanagerimp.cpp"
