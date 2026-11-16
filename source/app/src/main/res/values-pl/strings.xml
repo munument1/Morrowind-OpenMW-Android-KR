@@ -182,4 +182,9 @@
     <string name="sdl_exit">Zakończ</string>
     <string name="sdl_start_error">Wystąpił błąd podczas uruchamiania aplikacji. Spróbuj ponownie i/lub zainstaluj aplikację ponownie.\n\nBłąd: %1$s</string>
     <string name="navmesh_generating_cache">TWORZENIE PAMIĘCI PODRĘCZNEJ NAVMESH</string>
+    <string name="pref_font_size">Rozmiar czcionki</string>
+    <string name="pref_truetype_fonts_title">Ostre czcionki</string>
+    <string name="pref_truetype_fonts_summary">Używaj czcionek TrueType OpenMW zamiast oryginalnych czcionek bitmapowych. Pozostają ostre przy każdym rozmiarze czcionki i skali interfejsu i są wymagane dla rozmiarów powyżej 18.</string>
+    <string name="pref_handheld_mode_title">Tryb przenośny</string>
+    <string name="pref_handheld_mode_summary">Dla urządzeń z wbudowanymi kontrolkami. Ukrywa przyciski ekranowe. Przytrzymaj L1, aby otworzyć menu kołowe. R1 otwiera dziennik. Select to odpoczynek, a w polu tekstowym otwiera klawiaturę Androida. L3 pokazuje kursor w menu. Przytrzymaj Select i naciśnij L3 albo R3, aby otworzyć podgląd wydajności.</string>
 </resources>

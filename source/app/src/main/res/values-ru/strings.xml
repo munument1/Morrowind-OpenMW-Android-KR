@@ -182,4 +182,9 @@
     <string name="sdl_exit">Выйти</string>
     <string name="sdl_start_error">При запуске приложения произошла ошибка. Повторите попытку и/или переустановите приложение.\n\nОшибка: %1$s</string>
     <string name="navmesh_generating_cache">СОЗДАНИЕ КЭША NAVMESH</string>
+    <string name="pref_font_size">Размер шрифта</string>
+    <string name="pref_truetype_fonts_title">Чёткие шрифты</string>
+    <string name="pref_truetype_fonts_summary">Использовать шрифты TrueType из OpenMW вместо оригинальных растровых. Они остаются чёткими при любом размере шрифта и масштабе интерфейса и нужны для размеров больше 18.</string>
+    <string name="pref_handheld_mode_title">Портативный режим</string>
+    <string name="pref_handheld_mode_summary">Для устройств со встроенным управлением. Скрывает экранные кнопки. Удерживайте L1 для радиального меню. R1 открывает дневник. Select — отдых, а в текстовом поле открывает клавиатуру Android. L3 показывает курсор в меню. Удерживайте Select и нажмите L3 или R3 для оверлея производительности.</string>
 </resources>

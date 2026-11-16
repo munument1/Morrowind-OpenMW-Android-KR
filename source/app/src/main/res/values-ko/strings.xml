@@ -204,4 +204,9 @@
     <string name="legacy_storage_migration_failed_title">저장 파일을 옮기지 못함</string>
     <string name="legacy_storage_migration_no_space_message">%1$s에 있는 저장 파일과 설정을 옮기려면 여유 공간 %2$s가 필요합니다. 이전 폴더는 변경하지 않았습니다. 공간을 확보한 뒤 OpenMW를 다시 실행하세요.</string>
     <string name="legacy_storage_migration_failed_message">%1$s에 있는 저장 파일과 설정을 옮기지 못했습니다(%2$s). 이전 폴더는 변경하지 않았습니다. OpenMW를 다시 실행하여 다시 시도하세요.</string>
+    <string name="pref_font_size">글꼴 크기</string>
+    <string name="pref_truetype_fonts_title">선명한 글꼴</string>
+    <string name="pref_truetype_fonts_summary">기존 비트맵 글꼴 대신 OpenMW의 TrueType 글꼴을 사용합니다. 글꼴 크기와 UI 배율을 바꿔도 선명하며, 글꼴 크기를 18보다 크게 설정하려면 필요합니다.</string>
+    <string name="pref_handheld_mode_title">휴대용 게임기 모드</string>
+    <string name="pref_handheld_mode_summary">내장 컨트롤러가 있는 기기용입니다. 화면 버튼을 숨깁니다. L1을 길게 누르면 방사형 메뉴가 열리고, R1은 일지를 엽니다. Select는 휴식 또는 텍스트 입력 시 Android 키보드를 엽니다. L3은 메뉴에서 포인터를 표시합니다. Select를 누른 상태에서 L3 또는 R3을 누르면 성능 정보가 표시됩니다.</string>
 </resources>

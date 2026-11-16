@@ -8,8 +8,10 @@ apply plugin: 'kotlin-android'
  * calibrated OMWFX chain together behind one build-time verification gate.
  */
 
-def openMwVersionCode = 5116
-def openMwAndroidVersionName = '0.51.0-12-KR12.2'
+// Newer than the latest published permanent APK (5117) and the
+// staged Android KR13 build (5118). No signed APK is published here.
+def openMwVersionCode = 5119
+def openMwAndroidVersionName = '0.51.0-14-KR14'
 def versionFile = new File(
         project.rootDir,
         'app/src/main/assets/libopenmw/resources/version'
@@ -146,9 +148,9 @@ tasks.register('verifyOpenMwPayload') {
             )
         }
 
-        if (openMwVersionCode != 5116 || calculateVersion() != '0.51.0-12-KR12.2') {
+        if (openMwVersionCode != 5119 || calculateVersion() != '0.51.0-14-KR14') {
             throw new GradleException(
-                    'OpenMW Android final release identity must be versionName 0.51.0-12-KR12.2 and versionCode 5116.'
+                    'OpenMW Android KR14 build identity must be versionName 0.51.0-14-KR14 and versionCode 5119.'
             )
         }
 
@@ -736,12 +738,17 @@ android {
     namespace 'com.libopenmw.openmw'
 
     compileSdk 35
-    ndkVersion '26.1.10909125'
+    // Match the NDK r27d already used for Korean ARM64 native builds;
+    // it also supports 16 KiB ELF page alignment for libhandheld.so.
+    ndkVersion '27.3.13750724'
 
     sourceSets {
         main {
             resources {
                 srcDir "wrap/res"
+            }
+            assets {
+                srcDir "src/main/handheld-assets"
             }
 
             // Do not merge the generated upstream OMWFX VFS overlay.
@@ -821,6 +828,11 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+        }
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path 'src/main/cpp/Android.mk'
         }
     }
 }
