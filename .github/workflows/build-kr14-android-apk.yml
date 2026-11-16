@@ -149,6 +149,7 @@ jobs:
           #include <apps/openmw/mwdialogue/keywordsearch.hpp>
           #include <components/translation/translation.hpp>
           #include <array>
+          #include <components/misc/strings/conversion.hpp>
           #include <iostream>
           #include <stdexcept>
           #include <string_view>
@@ -178,7 +179,7 @@ jobs:
               }};
               for (const auto& [english,korean] : aliases)
               {
-                  storage.addPhraseForm(english,korean);
+                  storage.addPhraseForm(Misc::StringUtils::lowerCase(english),korean);
                   if (storage.canonicalTopicId(english) != korean)
                       throw std::runtime_error("KR14 regional TOP alias mapping regression");
               }
