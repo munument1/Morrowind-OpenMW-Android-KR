@@ -15,3 +15,5 @@
 Android KR14 APK(`com.ast.openmw.korean`, versionCode 5119, 0001–0019 패치)와 새 데이터 ZIP을 함께 사용한다. KR12.4 APK에는 #71의 엔진 수정이 없다. 지역 모드·PFP·Rebirth 번역 ZIP은 플랫폼 공통이며 이번에 검증한 새 DSP/플러그인을 사용할 수 있다. 일반 Cyr/Sky와 Rebirth 전용본은 동시에 활성화하지 않는다.
 
 실제 Android 기기의 설치·업그레이드·렌더링·저장/불러오기·전체 퀘스트는 미검증이다. 기존 공개 릴리스와 CURRENT_RELEASE.json을 후보로 교체하지 않았다. Nexus에는 올리지 않았다.
+
+[CI 43806850434](https://github.com/munument1/Morrowind-OpenMW-Android-KR/actions/runs/43806850434)이 성공했고, CI에서 생성한 후보 ZIP의 모든 멤버 SHA256은 로컬 후보와 같다. [확인 수치](ISSUE71-ANDROID-CI-QA.json)를 보관한다. 이 실행은 읽기 권한과 Actions 후보 artifact 업로드만 사용하며 Nexus/정식 Releases 업로드 단계가 없다.

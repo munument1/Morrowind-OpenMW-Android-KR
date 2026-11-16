@@ -1,0 +1,18 @@
+{
+  "status": "ANDROID_ISSUE71_CANDIDATE_VERIFIED_NO_NEXUS_UPLOAD",
+  "ci_run": "https://github.com/munument1/Morrowind-OpenMW-Android-KR/actions/runs/43806850434",
+  "source_commit": "8e7dc6d427b41222a3639a3d8e4131414ee1d136",
+  "local_data_sha256": "98ba6e161a9b45107c3bb72b4a76d701e0ae1635704d7546423426a03eee7c2d",
+  "ci_data_sha256": "50d3933059e7cb8930023ad72394b1c8bda395b1aa784d6373a19856b16953c1",
+  "local_and_ci_payload_identical": true,
+  "esp_sha256": "571683041b5b43f3a7d5c370f01dd6d8976de12c634c32c9ec00692a3d9ec682",
+  "records_checked": 48146,
+  "changed_subtitles": {
+    "VampireMolag": 3,
+    "playScript": 8
+  },
+  "signed_apk_sha256": "b66c684c0cf5bf92bd61e4d0a73749f112830ccb9797c126e2476028b629de5f",
+  "nexus_upload": false,
+  "physical_device_tested": false,
+  "public_release_published": false
+}
